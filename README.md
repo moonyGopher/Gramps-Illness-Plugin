@@ -1,13 +1,38 @@
 # Gramps Illness Plugin
 
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![Checked with mypy](http://www.mypy-lang.org/static/mypy_badge.svg)](http://mypy-lang.org/)
+
 Plugin that filters an genealogy tree for medical use and outputs it as pdf/graphviz/png/svg
 
 ## Status
 
-This repository currently only contains a **dummy report** (`illness_report.py` /
-`illness_report.gpr.py`). It does not implement any of the filtering or graph
-generation described below yet. Its only purpose is to verify that the plugin
-is registered correctly and shows up under **Reports > Graphs** in Gramps.
+- `illness_filter.py` implements the filtering: given a "me" person, it
+  returns the set of blood relatives that are medically relevant (ancestors,
+  their siblings and children, and me's own descendants), excluding anyone
+  only related by marriage. See "Filtering" below.
+- `illness_report.py` / `illness_report.gpr.py` is still a **dummy report**.
+  It does not use the filter yet and only draws a single placeholder node.
+  Its purpose is to verify that the plugin is registered correctly and
+  shows up under **Reports > Graphs** in Gramps. Wiring the filter into an
+  actual graph is still to do.
+
+## Filtering
+
+`illness_filter.filter_relevant_people(database, me, ancestor_generations=3, descendant_generations=3)`
+returns the set of person handles relevant to `me` (a Person or a handle):
+
+- direct ancestors (parents, grandparents, ...), up to `ancestor_generations`
+  levels (both parents of an ancestor are included)
+- at every one of those levels, including me's own, the siblings of that
+  generation's blood relative (aunts/uncles, or me's own siblings), plus
+  their descendants (cousins, ...) up to `descendant_generations` levels
+- me's own descendants (children, grandchildren, ...), up to
+  `descendant_generations` levels
+
+Anyone only connected by marriage (spouses/in-laws) is excluded, even when
+their blood-relative partner is included. See `test/README.md` and
+`test/test_filter.py` for a fully worked example.
 
 ## Installation (development)
 
@@ -76,6 +101,19 @@ directory into the plugin folder:
 ```sh
 ln -s /path/to/Gramps-Illness-Plugin/locale \
       ~/.local/share/gramps/gramps60/plugins/GrampsIllnessPlugin/locale
+```
+
+## Development
+
+CI (`.github/workflows/ci.yml`) runs the tests, [black](https://github.com/psf/black)
+(line length 120, see `pyproject.toml`) and [mypy](https://mypy-lang.org/) on
+every push/PR. To run the same checks locally (in a venv with access to the
+system Gramps install, e.g. `python3 -m venv --system-site-packages .venv`):
+
+```sh
+python3 -m unittest test.test_filter -v
+black --check --diff .
+mypy illness_filter.py illness_report.py test/
 ```
 
 Data which should be shown in the Graph:

@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Gramps and gettext
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gramps gettext
+
+      - name: Set up virtualenv (with access to the system Gramps install)
+        run: python3 -m venv --system-site-packages .venv
+
+      - name: Install lint/type-check tools
+        run: .venv/bin/pip install black mypy
+
+      - name: Run tests
+        run: .venv/bin/python -m unittest test.test_filter -v
+
+      - name: Validate translations (po/*.po compile cleanly)
+        run: |
+          for po_file in po/*.po; do
+            msgfmt --check "$po_file" -o /dev/null
+          done
+
+      - name: Check formatting (black, line-length 120)
+        run: .venv/bin/black --check --diff .
+
+      - name: Type check (mypy)
+        run: .venv/bin/mypy illness_filter.py illness_report.py test/

@@ -1,0 +1,9 @@
+[tool.black]
+line-length = 120
+
+[tool.mypy]
+warn_unused_ignores = true
+
+[[tool.mypy.overrides]]
+module = "gramps.*"
+ignore_missing_imports = true
