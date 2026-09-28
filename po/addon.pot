@@ -1,0 +1,29 @@
+# Translations template for the Gramps Illness Plugin.
+# Copyright (C) 2026 moonyGopher
+# This file is distributed under the same license as the Gramps Illness Plugin package.
+# moonyGopher, 2026.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Gramps Illness Plugin 0.1.0\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-09-28 18:59+0200\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: Claude-Code\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=CHARSET\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: illness_report.gpr.py:25
+msgid "Illness Report (Dummy)"
+msgstr ""
+
+#: illness_report.gpr.py:27
+msgid ""
+"Placeholder report used to verify that the Illness Plugin is correctly "
+"registered and appears under Reports > Graphs. Does not yet produce any real "
+"output."
+msgstr ""
