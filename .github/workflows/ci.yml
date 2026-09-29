@@ -22,7 +22,7 @@ jobs:
         run: .venv/bin/pip install black mypy
 
       - name: Run tests
-        run: .venv/bin/python -m unittest test.test_filter -v
+        run: .venv/bin/python -m unittest discover -s test -p "test_*.py" -v
 
       - name: Validate translations (po/*.po compile cleanly)
         run: |
@@ -34,4 +34,4 @@ jobs:
         run: .venv/bin/black --check --diff .
 
       - name: Type check (mypy)
-        run: .venv/bin/mypy illness_filter.py illness_report.py test/
+        run: .venv/bin/mypy illness_filter.py illness_graph.py illness_report.py test/

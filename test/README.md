@@ -1,13 +1,19 @@
 # Tests
 
-`test_filter.py` tests `illness_filter.filter_relevant_people()` against the
-TestTree fixture below. Run with:
+- `test_filter.py` tests `illness_filter.filter_relevant_people()` against
+  the TestTree fixture below.
+- `test_graph_generation.py` tests `illness_graph.build_graph_data()` (node
+  labels, edges, couples, generation ordering) against the same fixture.
+- `testtree.py` holds the shared fixture-loading helpers used by both.
+
+Run all of them with:
 
 ```sh
-python3 -m unittest test.test_filter -v
+python3 -m unittest discover -s test -p "test_*.py" -v
 ```
 
-(from the repository root, so that `illness_filter` is importable)
+(from the repository root, so that `illness_filter` and `illness_graph` are
+importable)
 
 ## TestTree data for the test
 

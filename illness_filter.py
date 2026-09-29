@@ -15,6 +15,11 @@ Included, starting from "me":
 
 Excluded: anyone only connected by marriage (spouses/in-laws) who is not
 also a blood relative through one of the paths above.
+
+Each included person is also assigned a generation number relative to
+"me" (0 = "me" and "me"'s own siblings; negative = ancestors and their
+siblings; positive = descendants), so the graph layout can group and order
+people generation by generation.
 """
 
 DEFAULT_ANCESTOR_GENERATIONS = 3
@@ -39,19 +44,36 @@ def filter_relevant_people(
         (sibling/aunt/uncle/...) found while walking up the ancestor line
     :rtype: set[str]
     """
+    return set(compute_relevant_generations(database, me, ancestor_generations, descendant_generations))
+
+
+def compute_relevant_generations(
+    database,
+    me,
+    ancestor_generations=DEFAULT_ANCESTOR_GENERATIONS,
+    descendant_generations=DEFAULT_DESCENDANT_GENERATIONS,
+):
+    """
+    Like `filter_relevant_people`, but returns `{handle: generation}`
+    instead of a bare set. See the module docstring for what `generation`
+    means.
+
+    :rtype: dict[str, int]
+    """
     me_handle = me.get_handle() if hasattr(me, "get_handle") else me
 
-    relevant = set()
+    generations = {}
     _add_ancestors_and_collaterals(
         database,
         me_handle,
         ancestor_generations,
         descendant_generations,
-        relevant,
+        generations,
         processed=set(),
+        generation=0,
     )
-    _add_descendants(database, me_handle, descendant_generations, relevant)
-    return relevant
+    _add_descendants(database, me_handle, descendant_generations, generations, start_generation=0)
+    return generations
 
 
 def _add_ancestors_and_collaterals(
@@ -59,8 +81,9 @@ def _add_ancestors_and_collaterals(
     person_handle,
     remaining_ancestor_generations,
     descendant_generations,
-    relevant,
+    generations,
     processed,
+    generation,
 ):
     """
     Add `person_handle`, their siblings (with the siblings' descendants),
@@ -69,7 +92,7 @@ def _add_ancestors_and_collaterals(
     if person_handle in processed:
         return
     processed.add(person_handle)
-    relevant.add(person_handle)
+    generations[person_handle] = generation
 
     person = database.get_person_from_handle(person_handle)
     parent_family_handle = person.get_main_parents_family_handle()
@@ -81,8 +104,8 @@ def _add_ancestors_and_collaterals(
         sibling_handle = child_ref.get_reference_handle()
         if sibling_handle == person_handle:
             continue
-        relevant.add(sibling_handle)
-        _add_descendants(database, sibling_handle, descendant_generations, relevant)
+        generations[sibling_handle] = generation
+        _add_descendants(database, sibling_handle, descendant_generations, generations, start_generation=generation)
 
     if remaining_ancestor_generations <= 0:
         return
@@ -97,12 +120,13 @@ def _add_ancestors_and_collaterals(
                 parent_handle,
                 remaining_ancestor_generations - 1,
                 descendant_generations,
-                relevant,
+                generations,
                 processed,
+                generation - 1,
             )
 
 
-def _add_descendants(database, person_handle, remaining_generations, relevant, processed=None):
+def _add_descendants(database, person_handle, remaining_generations, generations, start_generation, processed=None):
     """
     Add `person_handle` and recurse into their children while descendant
     generations remain. Partners are deliberately not added: only blood
@@ -113,7 +137,7 @@ def _add_descendants(database, person_handle, remaining_generations, relevant, p
     if person_handle in processed:
         return
     processed.add(person_handle)
-    relevant.add(person_handle)
+    generations[person_handle] = start_generation
 
     if remaining_generations <= 0:
         return
@@ -126,6 +150,7 @@ def _add_descendants(database, person_handle, remaining_generations, relevant, p
                 database,
                 child_ref.get_reference_handle(),
                 remaining_generations - 1,
-                relevant,
+                generations,
+                start_generation + 1,
                 processed,
             )

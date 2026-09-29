@@ -3,10 +3,6 @@
 #
 # Plugin registration file.
 #
-# This currently registers only a dummy placeholder report so that the
-# plugin's integration into Gramps (menu placement, loading, etc.) can be
-# verified before the real report logic is implemented.
-#
 from gramps.gen.plug._pluginreg import *
 
 # Note: do not define our own `_` here. When a `locale/` directory sits
@@ -22,13 +18,14 @@ MODULE_VERSION = "6.0"
 
 plg = newplugin()
 plg.id = "illness_report"
-plg.name = _("Illness Report (Dummy)")
+plg.name = _("Illness Report")
 plg.description = _(
-    "Placeholder report used to verify that the Illness Plugin is "
-    "correctly registered and appears under Reports > Graphs. "
-    "Does not yet produce any real output."
+    "Draws a genogram-style graph of the family members who are medically "
+    "relevant to a chosen person: ancestors, their siblings and children, "
+    "and that person's own descendants, showing birth/death dates, cause "
+    "of death, and recorded illnesses."
 )
-plg.version = "0.1.0"
+plg.version = "0.2.0"
 plg.gramps_target_version = MODULE_VERSION
 plg.status = STABLE
 plg.fname = "illness_report.py"

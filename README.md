@@ -3,7 +3,7 @@
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Checked with mypy](http://www.mypy-lang.org/static/mypy_badge.svg)](http://mypy-lang.org/)
 
-Plugin that filters an genealogy tree for medical use and outputs it as pdf/graphviz/png/svg
+Gramps report plugin that filters a genealogy tree for medical use and draws it as a Graphviz graph (pdf/png/svg/...).
 
 ## Status
 
@@ -11,11 +11,13 @@ Plugin that filters an genealogy tree for medical use and outputs it as pdf/grap
   returns the set of blood relatives that are medically relevant (ancestors,
   their siblings and children, and me's own descendants), excluding anyone
   only related by marriage. See "Filtering" below.
-- `illness_report.py` / `illness_report.gpr.py` is still a **dummy report**.
-  It does not use the filter yet and only draws a single placeholder node.
-  Its purpose is to verify that the plugin is registered correctly and
-  shows up under **Reports > Graphs** in Gramps. Wiring the filter into an
-  actual graph is still to do.
+- `illness_graph.py` turns that filtered set into graph data (node labels,
+  parent-child edges, couples, generation ordering), independent of
+  Graphviz, so it can be unit tested without running a report. See "Graph
+  generation" below.
+- `illness_report.py` / `illness_report.gpr.py` is the real report: it
+  renders `illness_graph`'s output as a Graphviz genogram and shows up
+  under **Reports > Graphs** in Gramps.
 
 ## Filtering
 
@@ -33,6 +35,42 @@ returns the set of person handles relevant to `me` (a Person or a handle):
 Anyone only connected by marriage (spouses/in-laws) is excluded, even when
 their blood-relative partner is included. See `test/README.md` and
 `test/test_filter.py` for a fully worked example.
+
+## Graph generation
+
+The report draws one box per person returned by the filter above:
+
+- **Label**: by default the person's display name; the "Show relationship
+  instead of name" option shows their relationship to the center person
+  (e.g. "Mother", "Cousin") instead, computed with Gramps' own relationship
+  calculator so it also follows Gramps' UI language.
+- **Birth/death**: shown with Gramps' genealogical symbols, using
+  Gramps' own locale-aware date formatting (so a "from"/"about" date
+  modifier is rendered the way Gramps normally renders it, in Gramps' UI
+  language).
+- **Cause of death**: shown next to the death date if a "Cause Of Death"
+  event is recorded.
+- **Illnesses**: every "Medical Information" event is listed with its date,
+  oldest first.
+- **Shape**: female persons get rounded box corners, male persons plain
+  ones.
+- Lines between people are plain (no arrowheads), and people are grouped
+  and ordered generation by generation (oldest generation first, each
+  generation sorted by birthdate with couples kept side by side) to keep
+  siblings in age order and reduce line crossings.
+
+Graphviz's own layout engine has the final say on the actual drawing,
+so crossing-free layout isn't guaranteed for every tree - but combined
+with the ordering above, selecting **Orthogonal** under the report's
+"Graphviz Layout > Connecting lines" option (a standard option Gramps adds
+automatically to every Graphviz report) gives noticeably cleaner results
+than the default curved lines, since it routes lines around boxes instead
+of through them.
+
+The center person, ancestor/descendant generation depth, and the
+name/relationship toggle are all report options; the center person option
+defaults to Gramps' Home Person when left unset. See `test/README.md` and
+`test/test_graph_generation.py` for a fully worked example.
 
 ## Installation (development)
 
@@ -54,14 +92,14 @@ plugins folder and symlink the individual files into it:
 
 ```sh
 mkdir -p ~/.local/share/gramps/gramps60/plugins/GrampsIllnessPlugin
-ln -s /path/to/Gramps-Illness-Plugin/illness_report.py \
-      ~/.local/share/gramps/gramps60/plugins/GrampsIllnessPlugin/illness_report.py
-ln -s /path/to/Gramps-Illness-Plugin/illness_report.gpr.py \
-      ~/.local/share/gramps/gramps60/plugins/GrampsIllnessPlugin/illness_report.gpr.py
+for f in illness_filter.py illness_graph.py illness_report.py illness_report.gpr.py; do
+    ln -s "/path/to/Gramps-Illness-Plugin/$f" \
+          "~/.local/share/gramps/gramps60/plugins/GrampsIllnessPlugin/$f"
+done
 ```
 
-Then (re)start Gramps. The dummy report appears under
-**Reports > Graphs > Illness Report (Dummy)**.
+Then (re)start Gramps. The report appears under
+**Reports > Graphs > Illness Report**.
 
 Note: `illness_report.gpr.py` declares `gramps_target_version`, which must
 match the major.minor version of your Gramps installation (e.g. `"6.0"`) or
@@ -111,29 +149,10 @@ every push/PR. To run the same checks locally (in a venv with access to the
 system Gramps install, e.g. `python3 -m venv --system-site-packages .venv`):
 
 ```sh
-python3 -m unittest test.test_filter -v
+python3 -m unittest discover -s test -p "test_*.py" -v
 black --check --diff .
-mypy illness_filter.py illness_report.py test/
+mypy illness_filter.py illness_graph.py illness_report.py test/
 ```
-
-Data which should be shown in the Graph:
-- Birthdate
-- Deathdate
-- Case of Death
-- Desisess / Illnesses with date
-
-- Graph should use the language used by gramps.
-- Me (the central person) should be the one set by gramps
-- the box for females should have roundet corners
-- the boxes for males have normal corners
-- use symbols for birth and death
-- it should be selectible wether to print the names of the persons or the position (me, child, uncle, sister, grandmother, ...) instead of the names
-- the lines in the graph should not cross eachother
-- the lines in the graph should all be orthogonal
-- the Persons of one generation (me, sisters, brothers) in the graph should be sorted by birthdate if possible, do not cross lines
-- the plugin should be found unter diagrams in graph after installation
-
-
 
 ## Example view
 

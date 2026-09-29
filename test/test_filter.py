@@ -21,61 +21,12 @@ import sys
 import unittest
 from typing import Any
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from gramps.cli.user import User
-from gramps.gen.db.utils import import_as_dict
+_TEST_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.dirname(_TEST_DIR))  # repo root, for illness_filter
+sys.path.insert(0, _TEST_DIR)  # this directory, for testtree
 
 from illness_filter import DEFAULT_ANCESTOR_GENERATIONS, filter_relevant_people
-
-TESTDATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "testdata")
-TEST_TREE_PATH = os.path.join(TESTDATA_DIR, "TestTree.gramps")
-
-# Maps the role names used in README.md to the (unique) first names used in
-# testdata/TestTree.gramps.
-ROLE_TO_FIRST_NAME = {
-    "Me": "MyFirstName",
-    "MyHusband": "MyHusbandsFirstName",
-    "MyChild": "MyChildsFirstName",
-    "HusbandsFather": "HusbandsFathersFirstName",
-    "HusbandsMother": "HusbandsMothersFirstName",
-    "MyBrother": "MyBrothersFirstName",
-    "MyMother": "MyMothersFirstName",
-    "MyFather": "MyFathersFirstName",
-    "MomsMom": "MomsMomsFirstName",
-    "MomsFather": "MomsFathersFirstName",
-    "MomsSister": "MomsSistersFirstName",
-    "MomsBrother": "MomsBrothersFirstName",
-    "MomsSistersHusband": "MomsSistersHusbandsFirstName",
-    "MomsSistersChild": "MomsSistersChildsFirstName",
-    "MomsFathersMother": "MomsFathersMothersFirstName",
-    "MomsFathersFather": "MomsFathersFathersFirstName",
-}
-
-# Everyone in the TestTree that is medically relevant to "Me" with the
-# default ancestor/descendant depth of 3 generations.
-EXPECTED_INCLUDED_ROLES = {
-    "Me",
-    "MyBrother",
-    "MyChild",
-    "MyFather",
-    "MyMother",
-    "MomsMom",
-    "MomsFather",
-    "MomsSister",
-    "MomsBrother",
-    "MomsSistersChild",
-    "MomsFathersMother",
-    "MomsFathersFather",
-}
-
-# In-laws: only connected to "Me" by marriage, never included.
-EXPECTED_EXCLUDED_ROLES = {
-    "MyHusband",
-    "HusbandsFather",
-    "HusbandsMother",
-    "MomsSistersHusband",
-}
+from testtree import EXPECTED_EXCLUDED_ROLES, EXPECTED_INCLUDED_ROLES, build_role_to_handle, load_test_tree
 
 
 class TestIllnessFilter(unittest.TestCase):
@@ -87,22 +38,13 @@ class TestIllnessFilter(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        cls.db = import_as_dict(TEST_TREE_PATH, User(quiet=True))
-        cls.role_to_handle = {
-            role: cls._find_handle_by_first_name(first_name) for role, first_name in ROLE_TO_FIRST_NAME.items()
-        }
+        cls.db = load_test_tree()
+        cls.role_to_handle = build_role_to_handle(cls.db)
         cls.me_handle = cls.role_to_handle["Me"]
 
     @classmethod
     def tearDownClass(cls):
         cls.db.close()
-
-    @classmethod
-    def _find_handle_by_first_name(cls, first_name):
-        for person in cls.db.iter_people():
-            if person.get_primary_name().get_first_name() == first_name:
-                return person.get_handle()
-        raise LookupError(f"No person with first name {first_name!r} in TestTree")
 
     def _relevant_roles(self, me=None, **kwargs):
         """Run the filter and translate the resulting handles back to role names."""

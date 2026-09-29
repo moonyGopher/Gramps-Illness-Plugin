@@ -6,9 +6,9 @@
 #, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: Gramps Illness Plugin 0.1.0\n"
+"Project-Id-Version: Gramps Illness Plugin 0.2.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-28 18:59+0200\n"
+"POT-Creation-Date: 2026-09-28 19:51+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: Claude-Code\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,13 +17,70 @@ msgstr ""
 "Content-Type: text/plain; charset=CHARSET\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: illness_report.gpr.py:25
-msgid "Illness Report (Dummy)"
+#: illness_report.gpr.py:21
+msgid "Illness Report"
 msgstr ""
 
-#: illness_report.gpr.py:27
+#: illness_report.gpr.py:23
 msgid ""
-"Placeholder report used to verify that the Illness Plugin is correctly "
-"registered and appears under Reports > Graphs. Does not yet produce any real "
-"output."
+"Draws a genogram-style graph of the family members who are medically "
+"relevant to a chosen person: ancestors, their siblings and children, and "
+"that person's own descendants, showing birth/death dates, cause of death, "
+"and recorded illnesses."
+msgstr ""
+
+#: illness_report.py:38
+#, python-format
+msgid "Person %s is not in the Database"
+msgstr ""
+
+#: illness_report.py:52
+msgid "Me"
+msgstr ""
+
+#: illness_report.py:102
+msgid "Report Options"
+msgstr ""
+
+#: illness_report.py:104
+msgid "Center Person"
+msgstr ""
+
+#: illness_report.py:105
+msgid ""
+"The center person for the graph. Defaults to the Home Person set in Gramps."
+msgstr ""
+
+#: illness_report.py:108
+msgid "Generations of ancestors"
+msgstr ""
+
+#: illness_report.py:110
+msgid ""
+"The number of generations of ancestors (and their siblings and children) to "
+"include."
+msgstr ""
+
+#: illness_report.py:114
+msgid "Generations of descendants"
+msgstr ""
+
+#: illness_report.py:117
+msgid ""
+"The number of generations of descendants to include, both for the center "
+"person and for collateral relatives (aunts/uncles/cousins, ...)."
+msgstr ""
+
+#: illness_report.py:123
+msgid "Show relationship instead of name"
+msgstr ""
+
+#: illness_report.py:126
+msgid ""
+"Show each person's relationship to the center person (e.g. mother, uncle, "
+"cousin) instead of their name."
+msgstr ""
+
+#: illness_report.py:133
+msgid "Report Options (2)"
 msgstr ""

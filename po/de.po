@@ -5,10 +5,10 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: Gramps Illness Plugin 0.1.0\n"
+"Project-Id-Version: Gramps Illness Plugin 0.2.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-28 18:59+0200\n"
-"PO-Revision-Date: 2026-09-28 18:59+0200\n"
+"POT-Creation-Date: 2026-09-28 19:51+0200\n"
+"PO-Revision-Date: 2026-09-28 19:51+0200\n"
 "Last-Translator: Claude-Code\n"
 "Language-Team: none\n"
 "Language: de\n"
@@ -17,16 +17,83 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: illness_report.gpr.py:25
-msgid "Illness Report (Dummy)"
-msgstr "Krankheitsreport (Platzhalter)"
+#: illness_report.gpr.py:21
+msgid "Illness Report"
+msgstr "Krankheitsreport"
 
-#: illness_report.gpr.py:27
+#: illness_report.gpr.py:23
 msgid ""
-"Placeholder report used to verify that the Illness Plugin is correctly "
-"registered and appears under Reports > Graphs. Does not yet produce any real "
-"output."
+"Draws a genogram-style graph of the family members who are medically "
+"relevant to a chosen person: ancestors, their siblings and children, and "
+"that person's own descendants, showing birth/death dates, cause of death, "
+"and recorded illnesses."
 msgstr ""
-"Platzhalter-Bericht, mit dem geprüft wird, dass das Illness-Plugin korrekt "
-"registriert ist und unter Berichte > Diagramme erscheint. Erzeugt noch "
-"keine echte Ausgabe."
+"Zeichnet einen genogrammartigen Graphen der für eine gewählte Person "
+"medizinisch relevanten Familienmitglieder: Vorfahren, deren Geschwister "
+"und Kinder sowie die eigenen Nachkommen der Person, mit Geburts- und "
+"Sterbedatum, Todesursache und erfassten Krankheiten."
+
+#: illness_report.py:38
+#, python-format
+msgid "Person %s is not in the Database"
+msgstr "Person %s ist nicht in der Datenbank vorhanden"
+
+#: illness_report.py:52
+msgid "Me"
+msgstr "Ich"
+
+#: illness_report.py:102
+msgid "Report Options"
+msgstr "Berichtsoptionen"
+
+#: illness_report.py:104
+msgid "Center Person"
+msgstr "Zentrale Person"
+
+#: illness_report.py:105
+msgid ""
+"The center person for the graph. Defaults to the Home Person set in Gramps."
+msgstr ""
+"Die zentrale Person für den Graphen. Standardmäßig die in Gramps "
+"eingestellte Hauptperson."
+
+#: illness_report.py:108
+msgid "Generations of ancestors"
+msgstr "Generationen von Vorfahren"
+
+#: illness_report.py:110
+msgid ""
+"The number of generations of ancestors (and their siblings and children) to "
+"include."
+msgstr ""
+"Die Anzahl der Generationen von Vorfahren (sowie deren Geschwister und "
+"Kinder), die einbezogen werden."
+
+#: illness_report.py:114
+msgid "Generations of descendants"
+msgstr "Generationen von Nachkommen"
+
+#: illness_report.py:117
+msgid ""
+"The number of generations of descendants to include, both for the center "
+"person and for collateral relatives (aunts/uncles/cousins, ...)."
+msgstr ""
+"Die Anzahl der Generationen von Nachkommen, die einbezogen werden - sowohl "
+"für die zentrale Person als auch für entfernte Verwandte (Tanten, Onkel, "
+"Cousins und Cousinen, ...)."
+
+#: illness_report.py:123
+msgid "Show relationship instead of name"
+msgstr "Verwandtschaftsbezeichnung statt Name anzeigen"
+
+#: illness_report.py:126
+msgid ""
+"Show each person's relationship to the center person (e.g. mother, uncle, "
+"cousin) instead of their name."
+msgstr ""
+"Zeigt für jede Person die Verwandtschaftsbeziehung zur zentralen Person "
+"(z. B. Mutter, Onkel, Cousin) anstelle ihres Namens an."
+
+#: illness_report.py:133
+msgid "Report Options (2)"
+msgstr "Berichtsoptionen (2)"
