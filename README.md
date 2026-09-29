@@ -6,7 +6,7 @@
 Gramps report plugin that filters a genealogy tree for medical use and draws it as a Graphviz graph (pdf/png/svg/...).
 
 ## Status
-
+g
 - `illness_filter.py` implements the filtering: given a "me" person, it
   returns the set of blood relatives that are medically relevant (ancestors,
   their siblings and children, and me's own descendants), excluding anyone
@@ -54,18 +54,30 @@ The report draws one box per person returned by the filter above:
   oldest first.
 - **Shape**: female persons get rounded box corners, male persons plain
   ones.
-- Lines between people are plain (no arrowheads), and people are grouped
-  and ordered generation by generation (oldest generation first, each
-  generation sorted by birthdate with couples kept side by side) to keep
-  siblings in age order and reduce line crossings.
-
-Graphviz's own layout engine has the final say on the actual drawing,
-so crossing-free layout isn't guaranteed for every tree - but combined
-with the ordering above, selecting **Orthogonal** under the report's
-"Graphviz Layout > Connecting lines" option (a standard option Gramps adds
-automatically to every Graphviz report) gives noticeably cleaner results
-than the default curved lines, since it routes lines around boxes instead
-of through them.
+- Each family connects as a bracket rather than as separate lines from
+  every parent to every child: a two-parent couple converges into one
+  shared point, which then diverges into every child, so it's never
+  ambiguous which parents a child belongs to. Every one of these lines
+  attaches to a person at a fixed side - the top for a line to an ancestor,
+  the bottom for a line to a descendant - and lines sharing a point are
+  pinned to its exact same spot (via Graphviz's samehead/sametail) rather
+  than each getting an independently-computed, slightly-offset spot, which
+  otherwise leaves a visible sliver of a gap. People are also grouped and
+  ordered generation by generation (oldest generation first, each
+  generation's blood siblings kept together and sorted by birthdate, with
+  a person's own block oriented towards an external partner's block so a
+  couple's connecting line doesn't have to reach across the whole block) to
+  keep siblings in age order and reduce line crossings. See
+  `illness_report._draw_family_link`/`_write_line` and
+  `illness_graph._order_generation` for why this needs more than just
+  "draw a line from parent to child".
+- **Connecting lines are always orthogonal** (routed at right angles
+  around boxes instead of diagonally through them) - this report registers
+  its own fixed "Connecting lines" option ahead of the "Graphviz Layout"
+  one Gramps adds to every Graphviz report, so that option only ever
+  offers Orthogonal here. (Gramps still shows its own copy of that control
+  under "Graphviz Layout" for every Graphviz report; changing it there has
+  no effect on this one.)
 
 The center person, ancestor/descendant generation depth, and the
 name/relationship toggle are all report options; the center person option

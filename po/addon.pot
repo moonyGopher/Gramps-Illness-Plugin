@@ -81,6 +81,21 @@ msgid ""
 "cousin) instead of their name."
 msgstr ""
 
+#: illness_report.py:199
+msgid "Connecting lines"
+msgstr ""
+
+#: illness_report.py:200
+msgid "Orthogonal"
+msgstr ""
+
+#: illness_report.py:203
+msgid ""
+"This report always uses orthogonal connecting lines: they route around boxes "
+"instead of through them, which avoids ambiguous-looking crossings in family "
+"connections."
+msgstr ""
+
 #: illness_report.py:133
 msgid "Report Options (2)"
 msgstr ""

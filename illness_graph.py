@@ -146,10 +146,7 @@ def build_graph_data(
 
 def _ordered_generation_groups(database, generations, couples):
     """
-    Group handles by generation, each group ordered left-to-right by
-    birthdate, except that as soon as one member of a couple is placed,
-    their partner is placed right next to them (regardless of birthdate),
-    so couples stay visually adjacent.
+    Group handles by generation, each group ordered per _order_generation.
     """
     partner_of = {}
     for father_handle, mother_handle in couples:
@@ -160,23 +157,86 @@ def _ordered_generation_groups(database, generations, couples):
     for handle, generation in generations.items():
         by_generation.setdefault(generation, []).append(handle)
 
-    groups = []
-    for generation in sorted(by_generation):
-        handles = by_generation[generation]
-        handle_set = set(handles)
-        placed = set()
-        ordered = []
-        for handle in sorted(handles, key=lambda h: _birth_sort_key(database, h)):
-            if handle in placed:
-                continue
-            ordered.append(handle)
-            placed.add(handle)
+    return [
+        (generation, _order_generation(database, by_generation[generation], partner_of))
+        for generation in sorted(by_generation)
+    ]
+
+
+def _order_generation(database, handles, partner_of):
+    """
+    Order one generation's people left to right: group blood siblings
+    (people sharing a parent family) into a contiguous block, sorted by
+    birthdate, and sort the blocks themselves by birthdate.
+
+    Keeping sibling blocks contiguous matters beyond appearances: it's
+    exactly what illness_report._draw_family_link's parent-to-children
+    point connects to, and a spouse splitting a block in two would force
+    that connection to visually reach past them to their actual siblings.
+
+    Someone with no siblings in this generation - typically a spouse who
+    married in - needs to sit right next to their partner's block instead.
+    Rather than just birthdate-sorting each block and hoping the in-block
+    partner already happens to be at the edge nearest the other block, each
+    block is oriented (which end its birthdate order starts from) so that
+    member ends up at whichever edge faces the partner's block; that avoids
+    a couple's own connecting line having to reach across the whole block
+    (and everyone else's lines dangling below it) to find each other.
+    """
+    handle_set = set(handles)
+
+    sibling_group_of = {}
+    for handle in handles:
+        person = database.get_person_from_handle(handle)
+        sibling_group_of[handle] = person.get_main_parents_family_handle() or handle
+
+    blocks = {}
+    for handle in handles:
+        blocks.setdefault(sibling_group_of[handle], []).append(handle)
+    for members in blocks.values():
+        members.sort(key=lambda h: _birth_sort_key(database, h))
+
+    block_order = sorted(blocks, key=lambda key: _birth_sort_key(database, blocks[key][0]))
+    block_index = {key: index for index, key in enumerate(block_order)}
+
+    for key in block_order:
+        members = blocks[key]
+        for handle in members:
             partner = partner_of.get(handle)
-            if partner and partner in handle_set and partner not in placed:
-                ordered.append(partner)
-                placed.add(partner)
-        groups.append((generation, ordered))
-    return groups
+            if not partner or partner not in handle_set or sibling_group_of[partner] == key:
+                continue
+            wants_right_edge = block_index[sibling_group_of[partner]] > block_index[key]
+            if wants_right_edge and members[0] == handle and members[-1] != handle:
+                members.reverse()
+            elif not wants_right_edge and members[-1] == handle and members[0] != handle:
+                members.reverse()
+            break  # one orienting member is enough; further members can't all be satisfied anyway
+
+    ordered = [handle for key in block_order for handle in blocks[key]]
+
+    for handle in list(ordered):
+        partner = partner_of.get(handle)
+        if not partner or partner not in handle_set:
+            continue
+        if len(blocks[sibling_group_of[handle]]) > 1:
+            continue  # has blood siblings here; leave this block as-is
+
+        partner_block = blocks[sibling_group_of[partner]]
+        block_positions = [ordered.index(member) for member in partner_block if member in ordered]
+        if not block_positions:
+            continue
+        left_edge, right_edge = min(block_positions), max(block_positions)
+        current_position = ordered.index(handle)
+        if left_edge - 1 <= current_position <= right_edge + 1:
+            continue  # already right next to the block
+
+        ordered.remove(handle)
+        block_positions = [ordered.index(member) for member in partner_block if member in ordered]
+        left_edge, right_edge = min(block_positions), max(block_positions)
+        insert_at = right_edge + 1 if current_position > right_edge else left_edge
+        ordered.insert(insert_at, handle)
+
+    return ordered
 
 
 def _build_label(

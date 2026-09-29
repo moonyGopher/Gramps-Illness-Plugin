@@ -29,8 +29,8 @@ msgid ""
 "and recorded illnesses."
 msgstr ""
 "Zeichnet einen genogrammartigen Graphen der für eine gewählte Person "
-"medizinisch relevanten Familienmitglieder: Vorfahren, deren Geschwister "
-"und Kinder sowie die eigenen Nachkommen der Person, mit Geburts- und "
+"medizinisch relevanten Familienmitglieder: Vorfahren, deren Geschwister und "
+"Kinder sowie die eigenen Nachkommen der Person, mit Geburts- und "
 "Sterbedatum, Todesursache und erfassten Krankheiten."
 
 #: illness_report.py:38
@@ -91,8 +91,26 @@ msgid ""
 "Show each person's relationship to the center person (e.g. mother, uncle, "
 "cousin) instead of their name."
 msgstr ""
-"Zeigt für jede Person die Verwandtschaftsbeziehung zur zentralen Person "
-"(z. B. Mutter, Onkel, Cousin) anstelle ihres Namens an."
+"Zeigt für jede Person die Verwandtschaftsbeziehung zur zentralen Person (z. "
+"B. Mutter, Onkel, Cousin) anstelle ihres Namens an."
+
+#: illness_report.py:199
+msgid "Connecting lines"
+msgstr "Verbindungslinien"
+
+#: illness_report.py:200
+msgid "Orthogonal"
+msgstr "Orthogonal"
+
+#: illness_report.py:203
+msgid ""
+"This report always uses orthogonal connecting lines: they route around boxes "
+"instead of through them, which avoids ambiguous-looking crossings in family "
+"connections."
+msgstr ""
+"Dieser Bericht verwendet immer orthogonale Verbindungslinien: Sie werden um "
+"Boxen herum statt durch sie hindurch geführt, wodurch mehrdeutig wirkende "
+"Überschneidungen bei Familienverbindungen vermieden werden."
 
 #: illness_report.py:133
 msgid "Report Options (2)"
