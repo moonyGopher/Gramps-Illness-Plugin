@@ -2,9 +2,12 @@
 
 - `test_filter.py` tests `illness_filter.filter_relevant_people()` against
   the TestTree fixture below.
-- `test_graph_generation.py` tests `illness_graph.build_graph_data()` (node
-  labels, edges, couples, generation ordering) against the same fixture.
-- `testtree.py` holds the shared fixture-loading helpers used by both.
+- `test_filter_rule.py` tests `illness_filter_rule.IsMedicallyRelevantTo`
+  (the Gramps Person filter rule wrapping that same filter) against the same
+  fixture.
+- `test_graphml.py` tests `illness_graphml.export_data()` (the GraphML (yEd)
+  export) against the same fixture, filtered the same way.
+- `testtree.py` holds the shared fixture-loading helpers used by all three.
 
 Run all of them with:
 
@@ -12,8 +15,8 @@ Run all of them with:
 python3 -m unittest discover -s test -p "test_*.py" -v
 ```
 
-(from the repository root, so that `illness_filter` and `illness_graph` are
-importable)
+(from the repository root, so that `illness_filter`, `illness_filter_rule`
+and `illness_graphml` are importable)
 
 ## TestTree data for the test
 

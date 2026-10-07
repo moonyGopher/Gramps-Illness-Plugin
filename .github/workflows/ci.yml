@@ -34,4 +34,4 @@ jobs:
         run: .venv/bin/black --check --diff .
 
       - name: Type check (mypy)
-        run: .venv/bin/mypy illness_filter.py illness_graph.py illness_report.py test/
+        run: .venv/bin/mypy illness_filter.py illness_filter_rule.py illness_graphml.py test/

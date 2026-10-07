@@ -6,9 +6,9 @@
 #, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: Gramps Illness Plugin 0.2.0\n"
+"Project-Id-Version: Gramps Illness Plugin 0.4.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-09-28 19:51+0200\n"
+"POT-Creation-Date: 2026-10-07 18:31+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: Claude-Code\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -17,85 +17,79 @@ msgstr ""
 "Content-Type: text/plain; charset=CHARSET\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-#: illness_report.gpr.py:21
-msgid "Illness Report"
+#: illness_filter_rule.gpr.py:21
+msgid "Medically relevant people"
 msgstr ""
 
-#: illness_report.gpr.py:23
+#: illness_filter_rule.gpr.py:23
 msgid ""
-"Draws a genogram-style graph of the family members who are medically "
-"relevant to a chosen person: ancestors, their siblings and children, and "
-"that person's own descendants, showing birth/death dates, cause of death, "
-"and recorded illnesses."
+"Person filter rule that matches the people medically relevant to a chosen "
+"person: their ancestors, the siblings and children of those ancestors, and "
+"the chosen person's own descendants. A ready-to-use filter based on it, "
+"named after the tree's Home Person, is available immediately in every Person "
+"filter list once a Home Person is set; build a custom filter from this rule "
+"in the Filter Editor instead if you want a different person or generation "
+"depth."
 msgstr ""
 
-#: illness_report.py:38
+#: illness_filter_rule.gpr.py:49
+msgid "Medically relevant people (built-in filter)"
+msgstr ""
+
+#: illness_filter_rule.gpr.py:51
+msgid ""
+"Contributes a ready-to-use 'Medically relevant people of <Home Person's "
+"name>' entry to every Person filter list, built from the 'Medically relevant "
+"people' rule."
+msgstr ""
+
+#: illness_filter_rule.py:42
+msgid "ID:"
+msgstr ""
+
+#: illness_filter_rule.py:42
+msgid "Generations of ancestors:"
+msgstr ""
+
+#: illness_filter_rule.py:42
+msgid "Generations of descendants:"
+msgstr ""
+
+#: illness_filter_rule.py:43
+msgid "People medically relevant to <person>"
+msgstr ""
+
+#: illness_filter_rule.py:44
+msgid "Family filters"
+msgstr ""
+
+#: illness_filter_rule.py:46
+msgid ""
+"Matches a chosen person's ancestors, the siblings and children of those "
+"ancestors, and the chosen person's own descendants, excluding anyone only "
+"related by marriage."
+msgstr ""
+
+#: illness_filter_rule.py:96
 #, python-format
-msgid "Person %s is not in the Database"
+msgid "Medically relevant people of %s"
 msgstr ""
 
-#: illness_report.py:52
-msgid "Me"
+#: illness_graphml.gpr.py:21
+msgid "GraphML (yEd)"
 msgstr ""
 
-#: illness_report.py:102
-msgid "Report Options"
+#: illness_graphml.gpr.py:22
+msgid "Graph_ML (yEd)"
 msgstr ""
 
-#: illness_report.py:104
-msgid "Center Person"
-msgstr ""
-
-#: illness_report.py:105
+#: illness_graphml.gpr.py:24
 msgid ""
-"The center person for the graph. Defaults to the Home Person set in Gramps."
-msgstr ""
-
-#: illness_report.py:108
-msgid "Generations of ancestors"
-msgstr ""
-
-#: illness_report.py:110
-msgid ""
-"The number of generations of ancestors (and their siblings and children) to "
-"include."
-msgstr ""
-
-#: illness_report.py:114
-msgid "Generations of descendants"
-msgstr ""
-
-#: illness_report.py:117
-msgid ""
-"The number of generations of descendants to include, both for the center "
-"person and for collateral relatives (aunts/uncles/cousins, ...)."
-msgstr ""
-
-#: illness_report.py:123
-msgid "Show relationship instead of name"
-msgstr ""
-
-#: illness_report.py:126
-msgid ""
-"Show each person's relationship to the center person (e.g. mother, uncle, "
-"cousin) instead of their name."
-msgstr ""
-
-#: illness_report.py:199
-msgid "Connecting lines"
-msgstr ""
-
-#: illness_report.py:200
-msgid "Orthogonal"
-msgstr ""
-
-#: illness_report.py:203
-msgid ""
-"This report always uses orthogonal connecting lines: they route around boxes "
-"instead of through them, which avoids ambiguous-looking crossings in family "
-"connections."
-msgstr ""
-
-#: illness_report.py:133
-msgid "Report Options (2)"
+"Exports the people selected by the chosen export filter as a GraphML file, "
+"ready to open and lay out in yEd: female persons get rounded-corner, "
+"bordeaux-bordered boxes, male persons square-corner, navy-bordered ones, "
+"each showing the person's name (bold), birth/death dates, cause of death, "
+"and recorded illnesses. Families are drawn as a shared connecting point "
+"between parents and children, and people are arranged generation by "
+"generation as a starting layout to refine in yEd."
 msgstr ""

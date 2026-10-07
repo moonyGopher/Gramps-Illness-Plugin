@@ -3,21 +3,32 @@
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Checked with mypy](http://www.mypy-lang.org/static/mypy_badge.svg)](http://mypy-lang.org/)
 
-Gramps report plugin that filters a genealogy tree for medical use and draws it as a Graphviz graph (pdf/png/svg/...).
+Gramps addon that filters a genealogy tree down to the people medically
+relevant to a chosen person. The filtering logic is registered as a Gramps
+Person filter rule, so it plugs into Gramps' own Filter Editor and, from
+there, into any export - GEDCOM, so the filtered family tree can be opened
+in any GEDCOM-aware tool, or this plugin's own **GraphML (yEd)** export,
+which additionally styles each person for
+[yEd](https://www.yworks.com/products/yed) (rounded/bordeaux boxes for
+women, square/navy boxes for men, bold names, birth/death/illness rows).
 
 ## Status
-g
+
 - `illness_filter.py` implements the filtering: given a "me" person, it
   returns the set of blood relatives that are medically relevant (ancestors,
   their siblings and children, and me's own descendants), excluding anyone
   only related by marriage. See "Filtering" below.
-- `illness_graph.py` turns that filtered set into graph data (node labels,
-  parent-child edges, couples, generation ordering), independent of
-  Graphviz, so it can be unit tested without running a report. See "Graph
-  generation" below.
-- `illness_report.py` / `illness_report.gpr.py` is the real report: it
-  renders `illness_graph`'s output as a Graphviz genogram and shows up
-  under **Reports > Graphs** in Gramps.
+- `illness_filter_rule.py` / `illness_filter_rule.gpr.py` wrap that filter as
+  a Gramps Person filter rule, **"People medically relevant to \<person\>"**,
+  under the **Family filters** category in the Filter Editor, and also
+  contribute a ready-made filter for the tree's Home Person, e.g.
+  **"Medically relevant people of John Doe"**, directly to every Person
+  filter list - no manual setup required (beyond setting a Home Person, if
+  the tree doesn't have one yet). See "Using the filter rule" below.
+- `illness_graphml.py` / `illness_graphml.gpr.py` add a **GraphML (yEd)**
+  entry to **File > Export...**, which applies whatever Person filter is
+  picked there (e.g. the one above) and writes the result as a styled
+  GraphML file. See "Exporting to GraphML (yEd)" below.
 
 ## Filtering
 
@@ -36,53 +47,59 @@ Anyone only connected by marriage (spouses/in-laws) is excluded, even when
 their blood-relative partner is included. See `test/README.md` and
 `test/test_filter.py` for a fully worked example.
 
-## Graph generation
+## Using the filter rule
 
-The report draws one box per person returned by the filter above:
+Once installed and a **Home Person** is set for the tree (**Edit > Set Home
+Person**, if not already done), a filter named after that person - e.g.
+**"Medically relevant people of John Doe"** - is already selectable wherever
+Gramps lists Person filters, the same way Gramps' own built-in "Ancestors of
+\<person\>"/"Descendants of \<person\>" export filters are. No manual setup
+needed; if no Home Person is set, the entry simply doesn't appear (rather
+than appearing and matching nobody).
 
-- **Label**: by default the person's display name; the "Show relationship
-  instead of name" option shows their relationship to the center person
-  (e.g. "Mother", "Cousin") instead, computed with Gramps' own relationship
-  calculator so it also follows Gramps' UI language.
-- **Birth/death**: shown with Gramps' genealogical symbols, using
-  Gramps' own locale-aware date formatting (so a "from"/"about" date
-  modifier is rendered the way Gramps normally renders it, in Gramps' UI
-  language).
-- **Cause of death**: shown next to the death date if a "Cause Of Death"
-  event is recorded.
-- **Illnesses**: every "Medical Information" event is listed with its date,
-  oldest first.
-- **Shape**: female persons get rounded box corners, male persons plain
-  ones.
-- Each family connects as a bracket rather than as separate lines from
-  every parent to every child: a two-parent couple converges into one
-  shared point, which then diverges into every child, so it's never
-  ambiguous which parents a child belongs to. Every one of these lines
-  attaches to a person at a fixed side - the top for a line to an ancestor,
-  the bottom for a line to a descendant - and lines sharing a point are
-  pinned to its exact same spot (via Graphviz's samehead/sametail) rather
-  than each getting an independently-computed, slightly-offset spot, which
-  otherwise leaves a visible sliver of a gap. People are also grouped and
-  ordered generation by generation (oldest generation first, each
-  generation's blood siblings kept together and sorted by birthdate, with
-  a person's own block oriented towards an external partner's block so a
-  couple's connecting line doesn't have to reach across the whole block) to
-  keep siblings in age order and reduce line crossings. See
-  `illness_report._draw_family_link`/`_write_line` and
-  `illness_graph._order_generation` for why this needs more than just
-  "draw a line from parent to child".
-- **Connecting lines are always orthogonal** (routed at right angles
-  around boxes instead of diagonally through them) - this report registers
-  its own fixed "Connecting lines" option ahead of the "Graphviz Layout"
-  one Gramps adds to every Graphviz report, so that option only ever
-  offers Orthogonal here. (Gramps still shows its own copy of that control
-  under "Graphviz Layout" for every Graphviz report; changing it there has
-  no effect on this one.)
+To export only those people: **File > Export...**, choose **GEDCOM** (or
+**GraphML (yEd)**, see below), and pick that filter in the export options'
+"Filter" dropdown. A GEDCOM export's `.ged` file contains just the filtered
+people (ancestors/descendants/siblings of the Home Person, 3 generations
+each way) and can be opened in yEd (or any other GEDCOM-aware tool) for
+layout and drawing.
 
-The center person, ancestor/descendant generation depth, and the
-name/relationship toggle are all report options; the center person option
-defaults to Gramps' Home Person when left unset. See `test/README.md` and
-`test/test_graph_generation.py` for a fully worked example.
+To use a different center person, or a different generation depth, build
+your own filter from the underlying rule instead:
+
+1. Open **Edit > Person Filter Editor** (or the filter sidebar's "Edit"
+   button in the People view).
+2. Create a new filter, choose rule category **Family filters**, and add
+   **People medically relevant to \<person\>**.
+3. Fill in the person's Gramps ID (and, optionally, how many generations of
+   ancestors/descendants to include - both default to 3 if left blank), then
+   save the filter under a name of your choice. It then shows up in the same
+   "Filter" dropdown as the ready-made one above.
+
+## Exporting to GraphML (yEd)
+
+**File > Export...** also offers **GraphML (yEd)** as a format, alongside
+GEDCOM. It applies whatever Person filter is picked in the export options
+(the ready-made one, a custom one built from the rule, or none - "Include
+all selected people") and writes everyone left as a `.graphml` file that
+opens directly in yEd, pre-styled to match the conventions worked out by
+hand in `test/testdata/TestTree.graphml`:
+
+- Female persons get rounded-corner boxes with a bordeaux border; male
+  persons get square-corner boxes with a navy border. Every box is filled
+  white.
+- Each box shows the person's name in bold, centered at the top; birth date
+  (bottom-left) and death date (bottom-right, same row); cause of death
+  below that; and a bulleted illness list (oldest first) below that - each
+  row only appears if the corresponding Gramps event exists ("Cause of
+  Death"/"Medical Information" events; see `illness_graphml._build_rows`).
+- Each family is drawn as a small point that every parent connects into and
+  every child connects out of (a "bracket"), rather than a separate line
+  from every parent to every child.
+- People are arranged generation by generation, oldest at the top, as a
+  starting layout - not a final one. This export does not try to minimize
+  line crossings; use yEd's own layout tools (**Layout > Tree**, etc.)
+  afterward the same way you would for any other yEd diagram.
 
 ## Installation (development)
 
@@ -104,22 +121,27 @@ plugins folder and symlink the individual files into it:
 
 ```sh
 mkdir -p ~/.local/share/gramps/gramps60/plugins/GrampsIllnessPlugin
-for f in illness_filter.py illness_graph.py illness_report.py illness_report.gpr.py; do
+for f in illness_filter.py illness_filter_rule.py illness_filter_rule.gpr.py \
+         illness_graphml.py illness_graphml.gpr.py; do
     ln -s "/path/to/Gramps-Illness-Plugin/$f" \
           "~/.local/share/gramps/gramps60/plugins/GrampsIllnessPlugin/$f"
 done
 ```
 
-Then (re)start Gramps. The report appears under
-**Reports > Graphs > Illness Report**.
+Then (re)start Gramps. A filter named after the tree's Home Person (e.g.
+**"Medically relevant people of John Doe"**) appears in every Person filter
+list, the underlying rule in the Filter Editor under **Family filters >
+People medically relevant to \<person\>** (see "Using the filter rule"
+above), and **GraphML (yEd)** appears in **File > Export...** (see
+"Exporting to GraphML (yEd)" above).
 
-Note: `illness_report.gpr.py` declares `gramps_target_version`, which must
-match the major.minor version of your Gramps installation (e.g. `"6.0"`) or
-the plugin will be ignored.
+Note: `illness_filter_rule.gpr.py` declares `gramps_target_version`, which
+must match the major.minor version of your Gramps installation (e.g.
+`"6.0"`) or the plugin will be ignored.
 
 ## Translations
 
-The menu entry (name/description) follows Gramps' UI language. Translations
+The filter's labels and description follow Gramps' UI language. Translations
 are stored as gettext catalogs, the same mechanism Gramps itself uses for
 addons:
 
@@ -133,9 +155,9 @@ original English string.
 To add or update a translation:
 
 ```sh
-# (re)extract translatable strings after changing illness_report*.py
+# (re)extract translatable strings after changing illness_filter_rule*.py / illness_graphml.gpr.py
 xgettext --language=Python --from-code=UTF-8 --keyword=_ \
-  -o po/addon.pot illness_report.gpr.py illness_report.py
+  -o po/addon.pot illness_filter_rule.gpr.py illness_filter_rule.py illness_graphml.gpr.py
 
 # create a new language file, e.g. French
 msginit --input=po/addon.pot --locale=fr --output=po/fr.po
@@ -163,26 +185,5 @@ system Gramps install, e.g. `python3 -m venv --system-site-packages .venv`):
 ```sh
 python3 -m unittest discover -s test -p "test_*.py" -v
 black --check --diff .
-mypy illness_filter.py illness_graph.py illness_report.py test/
+mypy illness_filter.py illness_filter_rule.py illness_graphml.py test/
 ```
-
-## Example view
-
------------------------------------     -----------------------------------
-| Mother                          |     | Father                          |
-| * 03.03.1960                    |     | *                               |
-| +                               |     | +                               |
------------------------------------     -----------------------------------
-                |                                       |
-                -----------------------------------------
-                                     |
-                -----------------------------------------
-                |                                       |
------------------------------------     -----------------------------------
-| Me                               |    | Brother                         |
-| * 01.01.1990                     |    | *                               |
-| +                                |    | +                               |
-|                                  |    -----------------------------------
-| - MyFirstIllness (since  2000)   |
-| - MySecondIllness (2001)         |
------------------------------------

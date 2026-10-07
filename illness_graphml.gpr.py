@@ -17,22 +17,25 @@ from gramps.gen.plug._pluginreg import *
 MODULE_VERSION = "6.0"
 
 plg = newplugin()
-plg.id = "illness_report"
-plg.name = _("Illness Report")
+plg.id = "illness_export_graphml"
+plg.name = _("GraphML (yEd)")
+plg.name_accell = _("Graph_ML (yEd)")
 plg.description = _(
-    "Draws a genogram-style graph of the family members who are medically "
-    "relevant to a chosen person: ancestors, their siblings and children, "
-    "and that person's own descendants, showing birth/death dates, cause "
-    "of death, and recorded illnesses."
+    "Exports the people selected by the chosen export filter as a GraphML "
+    "file, ready to open and lay out in yEd: female persons get "
+    "rounded-corner, bordeaux-bordered boxes, male persons square-corner, "
+    "navy-bordered ones, each showing the person's name (bold), birth/death "
+    "dates, cause of death, and recorded illnesses. Families are drawn as a "
+    "shared connecting point between parents and children, and people are "
+    "arranged generation by generation as a starting layout to refine in "
+    "yEd."
 )
-plg.version = "0.2.0"
+plg.version = "0.4.0"
 plg.gramps_target_version = MODULE_VERSION
 plg.status = STABLE
-plg.fname = "illness_report.py"
-plg.ptype = REPORT
+plg.fname = "illness_graphml.py"
+plg.ptype = EXPORT
+plg.export_function = "export_data"
+plg.extension = "graphml"
 plg.authors = ["moonyGopher"]
 plg.authors_email = ["88974951+moonyGopher@users.noreply.github.com"]
-plg.category = CATEGORY_GRAPHVIZ
-plg.reportclass = "IllnessReport"
-plg.optionclass = "IllnessReportOptions"
-plg.report_modes = [REPORT_MODE_GUI, REPORT_MODE_CLI]
