@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Gramps Illness Plugin 0.4.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-07 18:31+0200\n"
+"POT-Creation-Date: 2026-10-07 18:52+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: Claude-Code\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -92,4 +92,16 @@ msgid ""
 "and recorded illnesses. Families are drawn as a shared connecting point "
 "between parents and children, and people are arranged generation by "
 "generation as a starting layout to refine in yEd."
+msgstr ""
+
+#: illness_graphml.gpr.py:40
+msgid "GraphML (yEd) export options"
+msgstr ""
+
+#: illness_graphml.py:151 illness_graphml.py:153
+msgid "Me"
+msgstr ""
+
+#: illness_graphml.py:469
+msgid "Show relationship instead of name"
 msgstr ""

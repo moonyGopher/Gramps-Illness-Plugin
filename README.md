@@ -79,19 +79,24 @@ your own filter from the underlying rule instead:
 ## Exporting to GraphML (yEd)
 
 **File > Export...** also offers **GraphML (yEd)** as a format, alongside
-GEDCOM. It applies whatever Person filter is picked in the export options
-(the ready-made one, a custom one built from the rule, or none - "Include
-all selected people") and writes everyone left as a `.graphml` file that
-opens directly in yEd, pre-styled to match the conventions worked out by
-hand in `test/testdata/TestTree.graphml`:
+GEDCOM. Its **Options** page has the same privacy/living/filter controls
+every Gramps export has - including the "Filter" dropdown to apply the
+ready-made filter, a custom one built from the rule, or none ("Include all
+selected people") - plus one extra checkbox, **"Show relationship instead
+of name"**, which labels each box with its relationship to the Home Person
+(e.g. "Mother", "Cousin", computed with Gramps' own relationship calculator,
+so it follows Gramps' UI language) instead of their name. It then writes
+everyone left as a `.graphml` file that opens directly in yEd, pre-styled to
+match the conventions worked out by hand in `test/testdata/TestTree.graphml`:
 
 - Female persons get rounded-corner boxes with a bordeaux border; male
   persons get square-corner boxes with a navy border. Every box is filled
   white.
-- Each box shows the person's name in bold, centered at the top; birth date
-  (bottom-left) and death date (bottom-right, same row); cause of death
-  below that; and a bulleted illness list (oldest first) below that - each
-  row only appears if the corresponding Gramps event exists ("Cause of
+- Each box shows the person's name (or relationship, see above) in bold,
+  centered at the top; birth date (bottom-left) and death date
+  (bottom-right, same row); cause of death directly below the death date
+  (same column); and a bulleted illness list (oldest first, below that) -
+  each row only appears if the corresponding Gramps event exists ("Cause of
   Death"/"Medical Information" events; see `illness_graphml._build_rows`).
 - Each family is drawn as a small point that every parent connects into and
   every child connects out of (a "bracket"), rather than a separate line

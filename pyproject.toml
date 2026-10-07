@@ -7,3 +7,7 @@ warn_unused_ignores = true
 [[tool.mypy.overrides]]
 module = "gramps.*"
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "gi.*"
+ignore_missing_imports = true

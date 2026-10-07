@@ -16,13 +16,21 @@ import unittest
 import xml.etree.ElementTree as ET
 from typing import Any
 
+import gi
+
+# illness_graphml imports gramps.gui.plug.export (for its export-options box), which pulls in
+# GTK; real Gramps always pins this version at its own startup (see gramps/grampsapp.py) before
+# loading any plugin, but a standalone test process needs to do it itself, before that first import.
+gi.require_version("Gtk", "3.0")
+
 _TEST_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(_TEST_DIR))  # repo root, for illness_graphml
 sys.path.insert(0, _TEST_DIR)  # this directory, for testtree
 
-from gramps.gen.filters import GenericFilter
+from gramps.gen.filters import GenericFilter, reload_custom_filters
 from gramps.gen.lib import Date
 from gramps.gen.proxy import FilterProxyDb
+from gramps.gen.relationship import get_relationship_calculator
 
 import illness_graphml as ig
 from illness_filter_rule import IsMedicallyRelevantTo
@@ -143,12 +151,123 @@ class TestExportData(unittest.TestCase):
         illness_text = next(text for text in texts if text.startswith("- My"))
         self.assertLess(illness_text.index("MyFirstIllness"), illness_text.index("MySecondIllness"))
 
+    def test_cause_of_death_is_right_aligned_under_the_death_date(self):
+        graph = self._export_and_parse()
+        node = self._find_node_by_name(graph, "MomsFathersFathersFirstName")
+        cause_label = next(label for label in node.findall(".//y:NodeLabel", _GRAPHML_NS) if label.text == "(Cancer)")
+        self.assertEqual(cause_label.get("alignment"), "right")
+
     def _find_node_by_name(self, graph, first_name):
         for node in graph.findall("g:node", _GRAPHML_NS):
             label = node.find(".//y:NodeLabel[@fontStyle='bold']", _GRAPHML_NS)
             if label is not None and (label.text or "").startswith(first_name):
                 return node
         raise LookupError(f"no node found for {first_name!r}")
+
+
+class TestNameLines(unittest.TestCase):
+    db: Any
+
+    @classmethod
+    def setUpClass(cls):
+        cls.db = load_test_tree()
+        cls.role_to_handle = build_role_to_handle(cls.db)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.db.close()
+
+    def test_returns_real_name_when_no_home_person_given(self):
+        mother = self.db.get_person_from_handle(self.role_to_handle["MyMother"])
+        self.assertEqual(ig._name_lines(self.db, mother, None, None), ["MyMothersFirstName ", "MyMothersLastName"])
+
+    def test_returns_relationship_to_home_person_when_enabled(self):
+        me = self.db.get_person_from_handle(self.role_to_handle["Me"])
+        mother = self.db.get_person_from_handle(self.role_to_handle["MyMother"])
+        calculator = get_relationship_calculator()
+        self.assertEqual(ig._name_lines(self.db, mother, me, calculator), ["Mutter"])
+
+    def test_home_person_itself_is_labelled_me(self):
+        me = self.db.get_person_from_handle(self.role_to_handle["Me"])
+        calculator = get_relationship_calculator()
+        self.assertEqual(ig._name_lines(self.db, me, me, calculator), ["Ich"])
+
+
+class _FakeDbState:
+    """Minimal stand-in for gramps.gen.dbstate.DbState, enough for GraphMLWriterOptionBox."""
+
+    def __init__(self, db):
+        self.db = db
+
+
+class TestGraphMLWriterOptionBox(unittest.TestCase):
+    db: Any
+
+    @classmethod
+    def setUpClass(cls):
+        reload_custom_filters()
+        cls.db = load_test_tree()
+        cls.role_to_handle = build_role_to_handle(cls.db)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.db.close()
+
+    def _make_box(self):
+        me = self.db.get_person_from_handle(self.role_to_handle["Me"])
+        return ig.GraphMLWriterOptionBox(me, _FakeDbState(self.db), None)
+
+    def test_relationship_labels_default_to_off(self):
+        self.assertFalse(self._make_box().use_relationship_labels)
+
+    def test_checkbox_toggles_use_relationship_labels(self):
+        box = self._make_box()
+        box.get_option_box()
+        box._relationship_labels_check.set_active(True)
+        box.parse_options()
+        self.assertTrue(box.use_relationship_labels)
+
+    def test_export_data_uses_relationship_labels_from_a_parsed_option_box(self):
+        me_id = self.db.get_person_from_handle(self.role_to_handle["Me"]).get_gramps_id()
+        rule = IsMedicallyRelevantTo([me_id, "", ""])
+        person_filter = GenericFilter()
+        person_filter.add_rule(rule)
+        filtered_db = FilterProxyDb(self.db, person_filter)
+
+        fake_option_box = _FakeRelationshipOptionBox(filtered_db)
+        path = os.path.join(_TEST_DIR, "_tmp_test_export_relationship.graphml")
+        # _name_lines() needs a Home Person to compute relationship terms against.
+        self.db.set_default_person_handle(self.role_to_handle["Me"])
+        try:
+            ig.export_data(self.db, path, user=None, option_box=fake_option_box)
+            tree = ET.parse(path)
+            graph = tree.getroot().find("g:graph", _GRAPHML_NS)
+            bold_texts = {
+                label.text
+                for node in graph.findall("g:node", _GRAPHML_NS)
+                for label in node.findall(".//y:NodeLabel[@fontStyle='bold']", _GRAPHML_NS)
+            }
+            self.assertIn("Mutter", bold_texts)
+            self.assertIn("Ich", bold_texts)
+        finally:
+            self.db.set_default_person_handle(None)
+            if os.path.exists(path):
+                os.remove(path)
+
+
+class _FakeRelationshipOptionBox:
+    """Duck-types just enough of the option_box interface export_data() relies on."""
+
+    use_relationship_labels = True
+
+    def __init__(self, filtered_db):
+        self._filtered_db = filtered_db
+
+    def parse_options(self):
+        pass
+
+    def get_filtered_database(self, _database, progress=None, preview=False):
+        return self._filtered_db
 
 
 class TestDateText(unittest.TestCase):

@@ -10,8 +10,9 @@ test/testdata/TestTree.graphml:
   persons get square-corner boxes with a navy border. Every box is filled
   white. See _person_shape().
 - Each box's name is bold and centered at the top. Birth date (bottom-left)
-  and death date (bottom-right, sharing the birth row) follow, then cause
-  of death, then a bulleted illness list (oldest first) - each row is only
+  and death date (bottom-right, sharing the birth row) follow, then cause of
+  death directly below the death date (same, right-aligned column), then a
+  bulleted illness list (oldest first, left-aligned) - each row is only
   added if the data exists, and the box is only as tall as the rows it
   actually has. See _build_rows()/_RowLayout.
 - Every row is positioned as a fixed pixel offset from the box's own top
@@ -37,8 +38,13 @@ above, since that's the only thing anyone has asked this export to show.
 
 import html
 
+from gramps.gen.const import GRAMPS_LOCALE as glocale
 from gramps.gen.datehandler import displayer as date_displayer
 from gramps.gen.lib import EventType, Person
+from gramps.gen.relationship import get_relationship_calculator
+from gramps.gui.plug.export import WriterOptionBox
+
+_ = glocale.get_addon_translator(__file__).gettext
 
 # Gramps' own date display, in the numeric-with-leading-zeros format (e.g.
 # "04.04.1900"), to match the reference file. Index into get_date_formats();
@@ -93,34 +99,58 @@ def export_data(database, filename, user, option_box=None, callback=None):
     the user's chosen export filter (privacy/living/person/... - the same
     proxy chain GEDCOM export uses), then writes everyone left as GraphML.
     """
+    use_relationship_labels = False
     if option_box:
         option_box.parse_options()
         database = option_box.get_filtered_database(database)
+        use_relationship_labels = getattr(option_box, "use_relationship_labels", False)
 
     people = list(database.iter_people())
-    document = _build_document(database, people)
+    document = _build_document(database, people, use_relationship_labels)
 
     with open(filename, "w", encoding="utf-8") as the_file:
         the_file.write(document)
     return True
 
 
-def _build_document(database, people):
+def _build_document(database, people, use_relationship_labels=False):
     family_links = _build_family_links(database, people)
     generations = _compute_generations(people, family_links)
     positions, family_positions = _compute_layout(database, people, generations, family_links)
+
+    # A relationship term ("Mother", "Cousin", ...) needs a person to be relative to; the tree's
+    # Home Person is the natural choice, since it's also what the ready-made export filter uses.
+    # Without one, there's nothing to compute a relationship against, so fall back to real names.
+    home_person = database.get_default_person() if use_relationship_labels else None
+    relationship_calculator = get_relationship_calculator() if home_person else None
 
     person_ids = {person.handle: f"n{index}" for index, person in enumerate(people)}
     family_ids = {link["family_handle"]: f"f{index}" for index, link in enumerate(family_links)}
 
     parts = [_HEADER]
     for person in people:
-        parts.append(_write_person_node(database, person, person_ids[person.handle], positions[person.handle]))
+        name_lines = _name_lines(database, person, home_person, relationship_calculator)
+        parts.append(
+            _write_person_node(database, person, person_ids[person.handle], positions[person.handle], name_lines)
+        )
     for link in family_links:
         parts.append(_write_family_node(family_ids[link["family_handle"]], family_positions[link["family_handle"]]))
         parts.append(_write_family_edges(link, person_ids, family_ids[link["family_handle"]]))
     parts.append(_FOOTER)
     return "".join(parts)
+
+
+def _name_lines(database, person, home_person, relationship_calculator):
+    """The name block's lines: the real name (2 lines), or - if enabled - the relationship to the Home Person."""
+    if home_person is None:
+        name = person.get_primary_name()
+        given, surname = name.get_first_name(), name.get_surname()
+        return [f"{given} ", surname] if surname else [given]
+
+    if person.handle == home_person.handle:
+        return [_("Me")]
+    relationship = relationship_calculator.get_one_relationship(database, home_person, person)
+    return [relationship or _("Me")]
 
 
 # ---------------------------------------------------------------------------
@@ -281,7 +311,8 @@ def _build_rows(database, person):
 
     cause = _find_event(database, person, EventType.CAUSE_DEATH)
     if cause and cause.get_description():
-        rows.append(_Row([(f"({cause.get_description()})", "left")], is_date_row=False))
+        # Right-aligned, like the death date directly above it, so the cause reads as belonging to it.
+        rows.append(_Row([(f"({cause.get_description()})", "right")], is_date_row=False))
 
     illness_lines = []
     for illness in _find_events(database, person, EventType.MED_INFO):
@@ -336,11 +367,7 @@ def _node_label_xml(text, align, width, height, is_bold, auto_size, y_offset):
     )
 
 
-def _write_person_node(database, person, node_id, position):
-    name = person.get_primary_name()
-    given, surname = name.get_first_name(), name.get_surname()
-    name_lines = [f"{given} ", surname] if surname else [given]
-
+def _write_person_node(database, person, node_id, position, name_lines):
     rows = _build_rows(database, person)
     width, height = _box_size(name_lines, rows)
     is_female = person.get_gender() == Person.FEMALE
@@ -417,6 +444,37 @@ def _plain_edge(source_id, target_id):
         f"  </data>\n"
         f"</edge>\n"
     )
+
+
+class GraphMLWriterOptionBox(WriterOptionBox):
+    """
+    The options page for this export (see illness_graphml.gpr.py's
+    export_options): the standard privacy/living/filter/reference/note
+    options every Gramps export has (including the Person filter dropdown -
+    this plugin's own ready-made filter or a custom one - and "Include all
+    selected people" to ignore filtering entirely), plus one extra checkbox
+    to show each person's relationship to the Home Person instead of their
+    name (see _name_lines()).
+    """
+
+    def __init__(self, person, dbstate, uistate, track=None, window=None):
+        WriterOptionBox.__init__(self, person, dbstate, uistate, track=track or [], window=window)
+        self.use_relationship_labels = False
+        self._relationship_labels_check = None
+
+    def get_option_box(self):
+        from gi.repository import Gtk
+
+        option_box = WriterOptionBox.get_option_box(self)
+        self._relationship_labels_check = Gtk.CheckButton(label=_("Show relationship instead of name"))
+        self._relationship_labels_check.set_active(self.use_relationship_labels)
+        option_box.pack_start(self._relationship_labels_check, False, True, 0)
+        return option_box
+
+    def parse_options(self):
+        WriterOptionBox.parse_options(self)
+        if self._relationship_labels_check:
+            self.use_relationship_labels = self._relationship_labels_check.get_active()
 
 
 _HEADER = """<?xml version="1.0" encoding="UTF-8" standalone="no"?>
