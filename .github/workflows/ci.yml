@@ -10,19 +10,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Gramps and gettext
+      - name: Install Gramps (for its GTK/PyGObject dependencies), gettext and Xvfb
         run: |
           sudo apt-get update
-          sudo apt-get install -y gramps gettext
+          sudo apt-get install -y gramps gettext xvfb
 
-      - name: Set up virtualenv (with access to the system Gramps install)
+      - name: Set up virtualenv (with access to the system GTK/Gramps install)
         run: python3 -m venv --system-site-packages .venv
 
-      - name: Install lint/type-check tools
-        run: .venv/bin/pip install black mypy
+      - name: Install lint/type-check tools and a matching Gramps version
+        # Ubuntu's own `gramps` apt package (installed above, for its GTK/PyGObject
+        # dependencies) lags behind - e.g. 5.1.6 where this plugin targets 6.0.x. Shadow it
+        # inside the venv with the version we actually develop/test against, from PyPI.
+        run: .venv/bin/pip install black mypy "gramps==6.0.8"
 
       - name: Run tests
-        run: .venv/bin/python -m unittest discover -s test -p "test_*.py" -v
+        # Gramps' GUI option box creates real GTK widgets, which need a display even
+        # when never shown; xvfb-run provides a virtual one for this headless runner.
+        run: xvfb-run -a .venv/bin/python -m unittest discover -s test -p "test_*.py" -v
 
       - name: Validate translations (po/*.po compile cleanly)
         run: |

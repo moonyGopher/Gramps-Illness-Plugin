@@ -26,13 +26,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Gramps and gettext
+      - name: Install Gramps (for its GTK/PyGObject dependencies), gettext, zip and Xvfb
         run: |
           sudo apt-get update
-          sudo apt-get install -y gramps gettext zip
+          sudo apt-get install -y gramps gettext zip xvfb
+
+      - name: Set up virtualenv (with access to the system GTK/Gramps install)
+        run: python3 -m venv --system-site-packages .venv
+
+      - name: Install a matching Gramps version
+        # Ubuntu's own `gramps` apt package (installed above, for its GTK/PyGObject
+        # dependencies) lags behind - e.g. 5.1.6 where this plugin targets 6.0.x. Shadow it
+        # inside the venv with the version we actually develop/test against, from PyPI.
+        run: .venv/bin/pip install "gramps==6.0.8"
 
       - name: Run tests (don't publish a broken build)
-        run: python3 -m unittest discover -s test -p "test_*.py" -v
+        # Gramps' GUI option box creates real GTK widgets, which need a display even
+        # when never shown; xvfb-run provides a virtual one for this headless runner.
+        run: xvfb-run -a .venv/bin/python -m unittest discover -s test -p "test_*.py" -v
 
       - name: Build GrampsIllnessPlugin.zip
         run: |
