@@ -2,6 +2,7 @@
 
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![Checked with mypy](http://www.mypy-lang.org/static/mypy_badge.svg)](http://mypy-lang.org/)
+[![License: GPL v2 or later](https://img.shields.io/badge/license-GPL--2.0--or--later-blue.svg)](LICENSE)
 
 Gramps addon that filters a family tree down to the people medically
 relevant to a chosen person, then lets you export that selection as GEDCOM
@@ -75,3 +76,8 @@ For local development without copying files on every change, symlink the
 individual files (Gramps doesn't follow symlinked directories) plus
 `locale/` into a folder under your Gramps plugin directory instead of
 copying them.
+
+## License
+
+GPL-2.0-or-later, matching Gramps itself (this plugin directly imports and
+extends Gramps' own GPL-licensed classes). See [LICENSE](LICENSE).
