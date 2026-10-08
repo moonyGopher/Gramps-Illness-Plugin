@@ -1,8 +1,14 @@
 """
-Shared TestTree fixture helpers, used by both test_filter.py and
-test_graph_generation.py. See README.md in this directory for the full
-cast of people in testdata/TestTree.gramps and why each one is
-included/excluded by the filter.
+Shared TestTree fixture helpers, used by the test_*.py files. See README.md
+in this directory for the full cast of people in testdata/TestTree.ged and
+why each one is included/excluded by the filter.
+
+The fixture is kept as GEDCOM rather than Gramps' own .gramps format
+because .gramps embeds a schema version that a *newer* Gramps refuses to
+downgrade - exactly what broke CI when the file was last saved with a
+Gramps version newer than the one `apt`/CI installs (see testdata/TestTree.gramps,
+kept around only as the GUI-editable source - re-export it to TestTree.ged,
+via Gramps' own File > Export, after editing it).
 """
 
 import os
@@ -11,10 +17,10 @@ from gramps.cli.user import User
 from gramps.gen.db.utils import import_as_dict
 
 TESTDATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "testdata")
-TEST_TREE_PATH = os.path.join(TESTDATA_DIR, "TestTree.gramps")
+TEST_TREE_PATH = os.path.join(TESTDATA_DIR, "TestTree.ged")
 
 # Maps the role names used in README.md to the (unique) first names used in
-# testdata/TestTree.gramps.
+# testdata/TestTree.ged.
 ROLE_TO_FIRST_NAME = {
     "Me": "MyFirstName",
     "MyHusband": "MyHusbandsFirstName",

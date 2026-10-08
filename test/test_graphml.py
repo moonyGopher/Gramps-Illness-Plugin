@@ -27,6 +27,7 @@ _TEST_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(_TEST_DIR))  # repo root, for illness_graphml
 sys.path.insert(0, _TEST_DIR)  # this directory, for testtree
 
+from gramps.gen.datehandler import displayer as date_displayer
 from gramps.gen.filters import GenericFilter, reload_custom_filters
 from gramps.gen.lib import Date
 from gramps.gen.proxy import FilterProxyDb
@@ -182,15 +183,18 @@ class TestNameLines(unittest.TestCase):
         self.assertEqual(ig._name_lines(self.db, mother, None, None), ["MyMothersFirstName ", "MyMothersLastName"])
 
     def test_returns_relationship_to_home_person_when_enabled(self):
+        # Compares against the relationship calculator's own output rather than a hardcoded
+        # literal like "Mutter": that term is locale-dependent, same as Gramps' date/name display.
         me = self.db.get_person_from_handle(self.role_to_handle["Me"])
         mother = self.db.get_person_from_handle(self.role_to_handle["MyMother"])
         calculator = get_relationship_calculator()
-        self.assertEqual(ig._name_lines(self.db, mother, me, calculator), ["Mutter"])
+        expected = calculator.get_one_relationship(self.db, me, mother)
+        self.assertEqual(ig._name_lines(self.db, mother, me, calculator), [expected])
 
     def test_home_person_itself_is_labelled_me(self):
         me = self.db.get_person_from_handle(self.role_to_handle["Me"])
         calculator = get_relationship_calculator()
-        self.assertEqual(ig._name_lines(self.db, me, me, calculator), ["Ich"])
+        self.assertEqual(ig._name_lines(self.db, me, me, calculator), [ig._("Me")])
 
 
 class _FakeDbState:
@@ -247,8 +251,13 @@ class TestGraphMLWriterOptionBox(unittest.TestCase):
                 for node in graph.findall("g:node", _GRAPHML_NS)
                 for label in node.findall(".//y:NodeLabel[@fontStyle='bold']", _GRAPHML_NS)
             }
-            self.assertIn("Mutter", bold_texts)
-            self.assertIn("Ich", bold_texts)
+            # Compared against the calculator's/translator's own output, not a hardcoded
+            # literal like "Mutter": both are locale-dependent.
+            me = self.db.get_person_from_handle(self.role_to_handle["Me"])
+            mother = self.db.get_person_from_handle(self.role_to_handle["MyMother"])
+            calculator = get_relationship_calculator()
+            self.assertIn(calculator.get_one_relationship(self.db, me, mother), bold_texts)
+            self.assertIn(ig._("Me"), bold_texts)
         finally:
             self.db.set_default_person_handle(None)
             if os.path.exists(path):
@@ -274,10 +283,14 @@ class TestDateText(unittest.TestCase):
     def test_returns_none_for_empty_date(self):
         self.assertIsNone(ig._date_text(Date()))
 
-    def test_formats_full_date_numerically(self):
+    def test_formats_a_date_the_same_way_gramps_itself_currently_does(self):
+        # Deliberately not asserting a specific string: the exact rendering
+        # depends on Gramps' currently configured date format, which is
+        # locale-specific (see _date_text's docstring) - just confirm this
+        # doesn't add/change anything on top of Gramps' own date displayer.
         date = Date()
         date.set_yr_mon_day(1900, 4, 4)
-        self.assertEqual(ig._date_text(date), "04.04.1900")
+        self.assertEqual(ig._date_text(date), date_displayer.display(date))
 
 
 class TestComputeGenerations(unittest.TestCase):

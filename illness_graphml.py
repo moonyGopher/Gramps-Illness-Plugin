@@ -65,11 +65,6 @@ from gramps.gui.plug.export import WriterOptionBox
 
 _ = glocale.get_addon_translator(__file__).gettext
 
-# Gramps' own date display, in the numeric-with-leading-zeros format (e.g.
-# "04.04.1900"), to match the reference file. Index into get_date_formats();
-# see _date_text().
-_DATE_FORMAT_NUMERIC_PADDED = 6
-
 _BIRTH_SYMBOL = "*"
 _DEATH_SYMBOL = "✝"  # latin cross, Gramps' own default death symbol
 
@@ -290,6 +285,22 @@ def _find_event(database, person, event_type):
     return None
 
 
+def _find_cause_of_death(database, person):
+    """
+    Like _find_event(..., EventType.CAUSE_DEATH), but also matches a cause
+    of death recorded as a custom "Cause Of Death" event type - which is
+    what a person's cause-of-death event becomes after a round trip through
+    GEDCOM (export turns it into a generic EVEN/TYPE pair, and re-importing
+    that doesn't map it back to Gramps' own built-in CAUSE_DEATH type).
+    """
+    for event_ref in person.get_event_ref_list():
+        event = database.get_event_from_handle(event_ref.ref)
+        event_type = event.get_type()
+        if event_type == EventType.CAUSE_DEATH or (event_type.is_custom() and event_type.string == "Cause Of Death"):
+            return event
+    return None
+
+
 def _find_events(database, person, event_type):
     events = []
     for event_ref in person.get_event_ref_list():
@@ -301,15 +312,16 @@ def _find_events(database, person, event_type):
 
 
 def _date_text(date_obj):
-    """Format `date_obj` via Gramps' own date displayer, in the numeric-with-leading-zeros format."""
+    """
+    Format `date_obj` via Gramps' own date displayer, using whichever date
+    format is currently configured (Edit > Preferences > Dates in Gramps) -
+    deliberately not forcing a specific one: the exact format index for a
+    given style (e.g. "numeric with leading zeros") isn't stable across
+    locales, since the list of available formats is locale-specific.
+    """
     if date_obj is None or date_obj.is_empty():
         return None
-    original_format = date_displayer.format
-    date_displayer.set_format(_DATE_FORMAT_NUMERIC_PADDED)
-    try:
-        return date_displayer.display(date_obj)
-    finally:
-        date_displayer.set_format(original_format)
+    return date_displayer.display(date_obj)
 
 
 def _build_rows(database, person):
@@ -328,7 +340,7 @@ def _build_rows(database, person):
     if date_cells:
         rows.append(_Row(date_cells, is_date_row=True))
 
-    cause = _find_event(database, person, EventType.CAUSE_DEATH)
+    cause = _find_cause_of_death(database, person)
     if cause and cause.get_description():
         # Right-aligned, like the death date directly above it, so the cause reads as belonging to it.
         rows.append(_Row([(f"({cause.get_description()})", "right")], is_date_row=False))
