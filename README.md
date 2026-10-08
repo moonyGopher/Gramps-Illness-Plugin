@@ -106,7 +106,7 @@ match the conventions worked out by hand in `test/testdata/TestTree.graphml`:
   line crossings; use yEd's own layout tools (**Layout > Tree**, etc.)
   afterward the same way you would for any other yEd diagram.
 
-## Installation (development)
+## Installation
 
 Gramps loads plugins from its user plugin directory, which on Linux is
 typically:
@@ -115,14 +115,51 @@ typically:
 ~/.local/share/gramps/gramps<version>/plugins/
 ```
 
-(e.g. `~/.local/share/gramps/gramps60/plugins/` for Gramps 6.0). You can find
-the exact path for your installation by checking `gramps.gen.const.USER_PLUGINS`
-or via *Help > About* in Gramps.
+(e.g. `~/.local/share/gramps/gramps60/plugins/` for Gramps 6.0; on Windows
+it's typically `%USERPROFILE%\AppData\Roaming\gramps\gramps<version>\plugins\`,
+on macOS `~/Library/Application Support/gramps/gramps<version>/plugins/`).
+You can find the exact path for your installation by checking
+`gramps.gen.const.USER_PLUGINS` or via *Help > About* in Gramps.
 
-Gramps scans this directory recursively for `*.gpr.py` files, but it does
-**not** follow symlinked directories. To develop against this repository
-without copying files on every change, create a real directory inside the
-plugins folder and symlink the individual files into it:
+**Easiest:** go to this repository's **Releases** page, download
+`GrampsIllnessPlugin.zip` from the latest release, and extract it - the zip
+already contains just the files Gramps needs, bundled into a single
+`GrampsIllnessPlugin` folder, so there's no picking individual files. Move
+that folder into your Gramps user plugin directory, then (re)start Gramps.
+
+To track the latest `main` branch instead of a release:
+
+1. Download this repository - either `git clone` its URL (the one shown
+   under GitHub's green **Code** button), or use **Code > Download ZIP** on
+   GitHub and extract it - to any folder on your computer.
+2. Create a new folder for the plugin inside your Gramps user plugin
+   directory (e.g. `GrampsIllnessPlugin`) and copy these files into it:
+   `illness_filter.py`, `illness_filter_rule.py`,
+   `illness_filter_rule.gpr.py`, `illness_graphml.py`,
+   `illness_graphml.gpr.py`, and the `locale/` folder (for translated
+   labels; optional, but needed for anything other than English).
+3. (Re)start Gramps.
+
+The filter rule and its ready-made filter are now available wherever Gramps
+lists Person filters (see "Using the filter rule" below), and **GraphML
+(yEd)** appears as a format under **File > Export...** (see "Exporting to
+GraphML (yEd)" below).
+
+Note: `illness_filter_rule.gpr.py` and `illness_graphml.gpr.py` declare
+`gramps_target_version`, which must match the major.minor version of your
+Gramps installation (e.g. `"6.0"`) or the plugin will be ignored - edit that
+line in both files if you're on a different version.
+
+To update later, replace the copied files with the newer versions the same
+way.
+
+## Installation (development)
+
+Gramps scans the plugin directory recursively for `*.gpr.py` files, but it
+does **not** follow symlinked directories. To develop against this
+repository without copying files on every change, create a real directory
+inside the plugins folder and symlink the individual files into it instead
+of copying them:
 
 ```sh
 mkdir -p ~/.local/share/gramps/gramps60/plugins/GrampsIllnessPlugin
@@ -133,16 +170,8 @@ for f in illness_filter.py illness_filter_rule.py illness_filter_rule.gpr.py \
 done
 ```
 
-Then (re)start Gramps. A filter named after the tree's Home Person (e.g.
-**"Medically relevant people of John Doe"**) appears in every Person filter
-list, the underlying rule in the Filter Editor under **Family filters >
-People medically relevant to \<person\>** (see "Using the filter rule"
-above), and **GraphML (yEd)** appears in **File > Export...** (see
-"Exporting to GraphML (yEd)" above).
-
-Note: `illness_filter_rule.gpr.py` declares `gramps_target_version`, which
-must match the major.minor version of your Gramps installation (e.g.
-`"6.0"`) or the plugin will be ignored.
+Then (re)start Gramps - see "Installation" above for what to expect to show
+up, and the `gramps_target_version` compatibility note.
 
 ## Translations
 
