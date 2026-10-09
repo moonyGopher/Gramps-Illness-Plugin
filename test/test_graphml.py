@@ -79,7 +79,7 @@ class TestExportData(unittest.TestCase):
     def test_includes_exactly_the_filtered_people(self):
         graph = self._export_and_parse()
         bold_names = {
-            label.text.split(" \n")[0]
+            label.text.split(" ")[0]
             for node in graph.findall("g:node", _GRAPHML_NS)
             for label in node.findall(".//y:NodeLabel[@fontStyle='bold']", _GRAPHML_NS)
         }
@@ -158,6 +158,36 @@ class TestExportData(unittest.TestCase):
         cause_label = next(label for label in node.findall(".//y:NodeLabel", _GRAPHML_NS) if label.text == "(Cancer)")
         self.assertEqual(cause_label.get("alignment"), "right")
 
+    def test_cause_of_death_sits_directly_under_the_death_date(self):
+        # "Directly under" = the same tight gap used between consecutive illness lines (0 extra
+        # pixels beyond the death date's own row height), not the larger gap used elsewhere.
+        graph = self._export_and_parse()
+        node = self._find_node_by_name(graph, "MomsFathersFathersFirstName")
+        death_label = next(
+            label for label in node.findall(".//y:NodeLabel", _GRAPHML_NS) if (label.text or "").startswith("✝")
+        )
+        cause_label = next(label for label in node.findall(".//y:NodeLabel", _GRAPHML_NS) if label.text == "(Cancer)")
+        death_y = float(death_label.get("y"))
+        death_height = float(death_label.get("height"))
+        cause_y = float(cause_label.get("y"))
+        self.assertEqual(cause_y, death_y + death_height)
+
+    def test_every_box_uses_the_same_width(self):
+        graph = self._export_and_parse()
+        widths = {
+            node.find(".//y:Geometry", _GRAPHML_NS).get("width")
+            for node in graph.findall("g:node", _GRAPHML_NS)
+            if node.find(".//y:NodeLabel[@fontStyle='bold']", _GRAPHML_NS) is not None
+        }
+        self.assertEqual(len(widths), 1)
+
+    def test_names_are_on_a_single_line(self):
+        graph = self._export_and_parse()
+        for node in graph.findall("g:node", _GRAPHML_NS):
+            label = node.find(".//y:NodeLabel[@fontStyle='bold']", _GRAPHML_NS)
+            if label is not None:
+                self.assertNotIn("\n", label.text or "")
+
     def _find_node_by_name(self, graph, first_name):
         for node in graph.findall("g:node", _GRAPHML_NS):
             label = node.find(".//y:NodeLabel[@fontStyle='bold']", _GRAPHML_NS)
@@ -166,7 +196,7 @@ class TestExportData(unittest.TestCase):
         raise LookupError(f"no node found for {first_name!r}")
 
 
-class TestNameLines(unittest.TestCase):
+class TestPersonNameText(unittest.TestCase):
     db: Any
 
     @classmethod
@@ -178,9 +208,9 @@ class TestNameLines(unittest.TestCase):
     def tearDownClass(cls):
         cls.db.close()
 
-    def test_returns_real_name_when_no_home_person_given(self):
+    def test_returns_real_name_on_one_line_when_no_home_person_given(self):
         mother = self.db.get_person_from_handle(self.role_to_handle["MyMother"])
-        self.assertEqual(ig._name_lines(self.db, mother, None, None), ["MyMothersFirstName ", "MyMothersLastName"])
+        self.assertEqual(ig._person_name_text(self.db, mother, None, None), "MyMothersFirstName MyMothersLastName")
 
     def test_returns_relationship_to_home_person_when_enabled(self):
         # Compares against the relationship calculator's own output rather than a hardcoded
@@ -189,12 +219,12 @@ class TestNameLines(unittest.TestCase):
         mother = self.db.get_person_from_handle(self.role_to_handle["MyMother"])
         calculator = get_relationship_calculator()
         expected = calculator.get_one_relationship(self.db, me, mother)
-        self.assertEqual(ig._name_lines(self.db, mother, me, calculator), [expected])
+        self.assertEqual(ig._person_name_text(self.db, mother, me, calculator), expected)
 
     def test_home_person_itself_is_labelled_me(self):
         me = self.db.get_person_from_handle(self.role_to_handle["Me"])
         calculator = get_relationship_calculator()
-        self.assertEqual(ig._name_lines(self.db, me, me, calculator), [ig._("Me")])
+        self.assertEqual(ig._person_name_text(self.db, me, me, calculator), ig._("Me"))
 
 
 class _FakeDbState:
@@ -291,6 +321,39 @@ class TestDateText(unittest.TestCase):
         date = Date()
         date.set_yr_mon_day(1900, 4, 4)
         self.assertEqual(ig._date_text(date), date_displayer.display(date))
+
+
+class TestEventSortKey(unittest.TestCase):
+    def test_dated_events_sort_oldest_first(self):
+        early, late = _FakeEvent("1990-01-01", "B"), _FakeEvent("2000-01-01", "A")
+        self.assertEqual(sorted([late, early], key=ig._event_sort_key), [early, late])
+
+    def test_undated_events_sort_alphabetically_by_description(self):
+        zebra, apple = _FakeEvent(None, "Zebra"), _FakeEvent(None, "Apple")
+        self.assertEqual(sorted([zebra, apple], key=ig._event_sort_key), [apple, zebra])
+
+    def test_dated_events_always_sort_before_undated_ones(self):
+        dated, undated = _FakeEvent("1990-01-01", "Zebra"), _FakeEvent(None, "Apple")
+        self.assertEqual(sorted([undated, dated], key=ig._event_sort_key), [dated, undated])
+
+
+class _FakeEvent:
+    def __init__(self, yyyy_mm_dd, description):
+        date = Date()
+        if yyyy_mm_dd:
+            year, month, day = (int(part) for part in yyyy_mm_dd.split("-"))
+            date.set_yr_mon_day(year, month, day)
+        self._date = date
+        self._description = description
+
+    def get_date_object(self):
+        return self._date
+
+    def get_description(self):
+        return self._description
+
+    def __repr__(self):
+        return f"_FakeEvent({self._description!r})"
 
 
 class TestComputeGenerations(unittest.TestCase):

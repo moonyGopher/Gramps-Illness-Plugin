@@ -28,12 +28,17 @@ test/testdata/TestTree.graphml:
 - Female persons get rounded-corner boxes with a bordeaux border; male
   persons get square-corner boxes with a navy border. Every box is filled
   white. See _person_shape().
+- Every box is the same width - just wide enough for the single widest name
+  among the people included, so every name fits on its own one line - but
+  each is only as tall as the rows it actually has. See
+  _compute_box_width()/_box_height().
 - Each box's name is bold and centered at the top. Birth date (bottom-left)
   and death date (bottom-right, sharing the birth row) follow, then cause of
-  death directly below the death date (same, right-aligned column), then a
-  bulleted illness list (oldest first, left-aligned) - each row is only
-  added if the data exists, and the box is only as tall as the rows it
-  actually has. See _build_rows()/_RowLayout.
+  death directly below the death date (same, right-aligned column, and as
+  close under it as consecutive illness lines are to each other), then a
+  bulleted illness list (left-aligned; dated ones oldest first, then any
+  undated ones alphabetically) - each row is only added if the data exists.
+  See _build_rows()/_Row.
 - Every row is positioned as a fixed pixel offset from the box's own top
   edge (via nodeRatioY=-0.5/labelRatioY=-0.5, i.e. "anchor at the top edge,
   then place the label's own top edge `offset` pixels down"), not as a
@@ -72,7 +77,7 @@ _FEMALE_BORDER_COLOR = "#800020"  # Bordeaux/Weinrot
 _MALE_BORDER_COLOR = "#000080"  # Navy/Dunkelblau
 _FILL_COLOR = "#FFFFFF"
 
-_BOX_DEFAULT_WIDTH = 200.0
+_BOX_MIN_WIDTH = 200.0  # every box uses the same width - this, or wider if some name needs it (see _compute_box_width)
 _CHAR_WIDTH_ESTIMATE = 6.05  # px/char for Dialog 11pt, calibrated against the reference file
 _SIDE_MARGIN = 10.0
 _LEFT_MARGIN = 5.78  # calibrated from the reference file's left-aligned rows
@@ -81,6 +86,7 @@ _NAME_ROW_Y = 4.0
 _LINE_HEIGHT = 17.0  # one line of Dialog 11pt text, as laid out by yEd
 _ROW_GAP_AFTER_NAME = 2.4  # gap observed between the end of the name block and the next row
 _ROW_GAP = 12.0  # gap between any two stacked content rows below the name
+_TIGHT_ROW_GAP = 0.0  # gap before the cause-of-death row: as tight as the gap between illness lines
 _DATE_ROW_WIDTH = 100.0
 _DATE_ROW_HEIGHT = 20.0
 _TEXT_ROW_PADDING = 4.0  # autoSizePolicy="content" box padding, calibrated from the reference
@@ -88,16 +94,22 @@ _TEXT_LINE_HEIGHT = 14.98  # additional height per extra line in a content-sized
 _BOTTOM_MARGIN = 10.0
 
 _GENERATION_ROW_HEIGHT = 180.0
-_COLUMN_WIDTH = 240.0
+_COLUMN_GAP = 40.0  # horizontal gap between boxes in the same generation, on top of box_width
 _DOT_SIZE = 15.0
 
 
 class _Row:
-    """One row below the name: `cells` is a list of (text, align) pairs sharing that row (e.g. birth+death)."""
+    """
+    One row below the name: `cells` is a list of (text, align) pairs
+    sharing that row (e.g. birth+death). `tight_gap_before`, if set, uses
+    _TIGHT_ROW_GAP instead of _ROW_GAP before this row (see the
+    cause-of-death row in _build_rows()).
+    """
 
-    def __init__(self, cells, is_date_row):
+    def __init__(self, cells, is_date_row, tight_gap_before=False):
         self.cells = cells
         self.is_date_row = is_date_row
+        self.tight_gap_before = tight_gap_before
 
     @property
     def height(self):
@@ -130,7 +142,6 @@ def export_data(database, filename, user, option_box=None, callback=None):
 def _build_document(database, people, use_relationship_labels=False):
     family_links = _build_family_links(database, people)
     generations = _compute_generations(people, family_links)
-    positions, family_positions = _compute_layout(database, people, generations, family_links)
 
     # A relationship term ("Mother", "Cousin", ...) needs a person to be relative to; the tree's
     # Home Person is the natural choice, since it's also what the ready-made export filter uses.
@@ -138,14 +149,27 @@ def _build_document(database, people, use_relationship_labels=False):
     home_person = database.get_default_person() if use_relationship_labels else None
     relationship_calculator = get_relationship_calculator() if home_person else None
 
+    names_by_handle = {
+        person.handle: _person_name_text(database, person, home_person, relationship_calculator) for person in people
+    }
+    box_width = _compute_box_width(names_by_handle.values())
+
+    positions, family_positions = _compute_layout(database, people, generations, family_links, box_width)
+
     person_ids = {person.handle: f"n{index}" for index, person in enumerate(people)}
     family_ids = {link["family_handle"]: f"f{index}" for index, link in enumerate(family_links)}
 
     parts = [_HEADER]
     for person in people:
-        name_lines = _name_lines(database, person, home_person, relationship_calculator)
         parts.append(
-            _write_person_node(database, person, person_ids[person.handle], positions[person.handle], name_lines)
+            _write_person_node(
+                database,
+                person,
+                person_ids[person.handle],
+                positions[person.handle],
+                names_by_handle[person.handle],
+                box_width,
+            )
         )
     for link in family_links:
         parts.append(_write_family_node(family_ids[link["family_handle"]], family_positions[link["family_handle"]]))
@@ -154,17 +178,16 @@ def _build_document(database, people, use_relationship_labels=False):
     return "".join(parts)
 
 
-def _name_lines(database, person, home_person, relationship_calculator):
-    """The name block's lines: the real name (2 lines), or - if enabled - the relationship to the Home Person."""
+def _person_name_text(database, person, home_person, relationship_calculator):
+    """The name block's text (a single line): the real name, or - if enabled - the relationship to the Home Person."""
     if home_person is None:
         name = person.get_primary_name()
         given, surname = name.get_first_name(), name.get_surname()
-        return [f"{given} ", surname] if surname else [given]
+        return f"{given} {surname}" if surname else given
 
     if person.handle == home_person.handle:
-        return [_("Me")]
-    relationship = relationship_calculator.get_one_relationship(database, home_person, person)
-    return [relationship or _("Me")]
+        return _("Me")
+    return relationship_calculator.get_one_relationship(database, home_person, person) or _("Me")
 
 
 # ---------------------------------------------------------------------------
@@ -248,16 +271,17 @@ def _birth_sort_key(database, person):
     return (0, birth.get_date_object().get_sort_value())
 
 
-def _compute_layout(database, people, generations, family_links):
+def _compute_layout(database, people, generations, family_links, box_width):
     by_generation: dict = {}
     for person in people:
         by_generation.setdefault(generations[person.handle], []).append(person)
 
+    column_width = box_width + _COLUMN_GAP
     positions = {}
     for generation, generation_people in by_generation.items():
         generation_people.sort(key=lambda person: _birth_sort_key(database, person))
         for index, person in enumerate(generation_people):
-            positions[person.handle] = (index * _COLUMN_WIDTH, generation * _GENERATION_ROW_HEIGHT)
+            positions[person.handle] = (index * column_width, generation * _GENERATION_ROW_HEIGHT)
 
     family_positions = {}
     for link in family_links:
@@ -267,7 +291,7 @@ def _compute_layout(database, people, generations, family_links):
         parent_generation = min(generations[handle] for handle in link["parents"])
         child_generation = min(generations[handle] for handle in link["children"])
         y = (parent_generation + child_generation + 1) / 2 * _GENERATION_ROW_HEIGHT
-        family_positions[link["family_handle"]] = (x + _BOX_DEFAULT_WIDTH / 2 - _DOT_SIZE / 2, y)
+        family_positions[link["family_handle"]] = (x + box_width / 2 - _DOT_SIZE / 2, y)
 
     return positions, family_positions
 
@@ -302,13 +326,25 @@ def _find_cause_of_death(database, person):
 
 
 def _find_events(database, person, event_type):
+    """
+    Collect `person`'s events of `event_type`, dated ones first (oldest
+    first), then undated ones alphabetically by description (there's no
+    date to sort those by).
+    """
     events = []
     for event_ref in person.get_event_ref_list():
         event = database.get_event_from_handle(event_ref.ref)
         if event.get_type() == event_type:
             events.append(event)
-    events.sort(key=lambda event: event.get_date_object().get_sort_value())
+    events.sort(key=_event_sort_key)
     return events
+
+
+def _event_sort_key(event):
+    date_obj = event.get_date_object()
+    if date_obj and not date_obj.is_empty():
+        return (0, date_obj.get_sort_value(), "")
+    return (1, 0, (event.get_description() or "").lower())
 
 
 def _date_text(date_obj):
@@ -342,8 +378,9 @@ def _build_rows(database, person):
 
     cause = _find_cause_of_death(database, person)
     if cause and cause.get_description():
-        # Right-aligned, like the death date directly above it, so the cause reads as belonging to it.
-        rows.append(_Row([(f"({cause.get_description()})", "right")], is_date_row=False))
+        # Right-aligned, like the death date directly above it, so the cause reads as belonging to it;
+        # tight_gap_before keeps it close under that date, as tight as consecutive illness lines are.
+        rows.append(_Row([(f"({cause.get_description()})", "right")], is_date_row=False, tight_gap_before=True))
 
     illness_lines = []
     for illness in _find_events(database, person, EventType.MED_INFO):
@@ -360,18 +397,23 @@ def _text_width(text):
     return max((len(line) for line in text.split("\n")), default=0) * _CHAR_WIDTH_ESTIMATE
 
 
-def _box_size(name_lines, rows):
-    name_height = len(name_lines) * _LINE_HEIGHT
-    rows_height = sum(row.height for row in rows)
-    gaps_height = (_ROW_GAP_AFTER_NAME if rows else 0) + max(len(rows) - 1, 0) * _ROW_GAP
-    height = _NAME_ROW_Y + name_height + gaps_height + rows_height + _BOTTOM_MARGIN
+def _compute_box_width(name_texts):
+    """
+    Every box uses this same width, computed once for the whole export:
+    wide enough for the single widest name among the people included (so
+    every name fits on its one line), or _BOX_MIN_WIDTH if that's already
+    wide enough.
+    """
+    widest_name = max((_text_width(text) for text in name_texts), default=0.0)
+    return max(_BOX_MIN_WIDTH, widest_name + _LEFT_MARGIN + _SIDE_MARGIN)
 
-    widest_line = max(
-        [_text_width(line) for line in name_lines] + [_text_width(text) for row in rows for text, _align in row.cells],
-        default=0.0,
-    )
-    width = max(_BOX_DEFAULT_WIDTH, widest_line + _LEFT_MARGIN + _SIDE_MARGIN)
-    return width, max(height, 70.0)
+
+def _box_height(rows):
+    rows_height = sum(row.height for row in rows)
+    gaps = [_TIGHT_ROW_GAP if row.tight_gap_before else _ROW_GAP for row in rows[1:]]
+    gaps_height = (_ROW_GAP_AFTER_NAME if rows else 0) + sum(gaps)
+    height = _NAME_ROW_Y + _LINE_HEIGHT + gaps_height + rows_height + _BOTTOM_MARGIN
+    return max(height, 70.0)
 
 
 def _node_label_xml(text, align, width, height, is_bold, auto_size, y_offset):
@@ -398,31 +440,23 @@ def _node_label_xml(text, align, width, height, is_bold, auto_size, y_offset):
     )
 
 
-def _write_person_node(database, person, node_id, position, name_lines):
+def _write_person_node(database, person, node_id, position, name_text, box_width):
     rows = _build_rows(database, person)
-    width, height = _box_size(name_lines, rows)
+    height = _box_height(rows)
     is_female = person.get_gender() == Person.FEMALE
     border_color = _FEMALE_BORDER_COLOR if is_female else _MALE_BORDER_COLOR
     shape_type = "roundrectangle" if is_female else "rectangle"
 
-    labels = [
-        _node_label_xml(
-            "\n".join(name_lines),
-            "center",
-            width - 2 * _SIDE_MARGIN,
-            len(name_lines) * _LINE_HEIGHT,
-            True,
-            True,
-            _NAME_ROW_Y,
-        )
-    ]
+    labels = [_node_label_xml(name_text, "center", box_width - 2 * _SIDE_MARGIN, _LINE_HEIGHT, True, True, _NAME_ROW_Y)]
 
-    row_y = _NAME_ROW_Y + len(name_lines) * _LINE_HEIGHT + _ROW_GAP_AFTER_NAME
-    for row in rows:
+    row_y = _NAME_ROW_Y + _LINE_HEIGHT + _ROW_GAP_AFTER_NAME
+    for index, row in enumerate(rows):
         for text, align in row.cells:
             label_width = _DATE_ROW_WIDTH if row.is_date_row else _text_width(text) + 4.0
             labels.append(_node_label_xml(text, align, label_width, row.height, False, not row.is_date_row, row_y))
-        row_y += row.height + _ROW_GAP
+        if index + 1 < len(rows):
+            gap = _TIGHT_ROW_GAP if rows[index + 1].tight_gap_before else _ROW_GAP
+            row_y += row.height + gap
 
     x, y = position
     content = "".join(labels)
@@ -430,7 +464,7 @@ def _write_person_node(database, person, node_id, position, name_lines):
         f'<node id="{node_id}">\n'
         f'  <data key="d0">\n'
         f"    <y:ShapeNode>\n"
-        f'      <y:Geometry height="{height}" width="{width}" x="{x}" y="{y}"/>\n'
+        f'      <y:Geometry height="{height}" width="{box_width}" x="{x}" y="{y}"/>\n'
         f'      <y:Fill color="{_FILL_COLOR}" transparent="false"/>\n'
         f'      <y:BorderStyle color="{border_color}" type="line" width="1.0"/>\n'
         f"      {content}\n"
@@ -485,7 +519,7 @@ class GraphMLWriterOptionBox(WriterOptionBox):
     this plugin's own ready-made filter or a custom one - and "Include all
     selected people" to ignore filtering entirely), plus one extra checkbox
     to show each person's relationship to the Home Person instead of their
-    name (see _name_lines()).
+    name (see _person_name_text()).
     """
 
     def __init__(self, person, dbstate, uistate, track=None, window=None):
