@@ -208,23 +208,36 @@ class TestPersonNameText(unittest.TestCase):
     def tearDownClass(cls):
         cls.db.close()
 
-    def test_returns_real_name_on_one_line_when_no_home_person_given(self):
+    def test_full_name_mode_returns_given_and_surname_on_one_line(self):
         mother = self.db.get_person_from_handle(self.role_to_handle["MyMother"])
-        self.assertEqual(ig._person_name_text(self.db, mother, None, None), "MyMothersFirstName MyMothersLastName")
+        text = ig._person_name_text(self.db, mother, ig._LABEL_MODE_FULL_NAME, None, None)
+        self.assertEqual(text, "MyMothersFirstName MyMothersLastName")
 
-    def test_returns_relationship_to_home_person_when_enabled(self):
+    def test_first_name_mode_returns_just_the_given_name(self):
+        mother = self.db.get_person_from_handle(self.role_to_handle["MyMother"])
+        text = ig._person_name_text(self.db, mother, ig._LABEL_MODE_FIRST_NAME, None, None)
+        self.assertEqual(text, "MyMothersFirstName")
+
+    def test_relationship_mode_returns_the_relationship_to_the_home_person(self):
         # Compares against the relationship calculator's own output rather than a hardcoded
         # literal like "Mutter": that term is locale-dependent, same as Gramps' date/name display.
         me = self.db.get_person_from_handle(self.role_to_handle["Me"])
         mother = self.db.get_person_from_handle(self.role_to_handle["MyMother"])
         calculator = get_relationship_calculator()
         expected = calculator.get_one_relationship(self.db, me, mother)
-        self.assertEqual(ig._person_name_text(self.db, mother, me, calculator), expected)
+        text = ig._person_name_text(self.db, mother, ig._LABEL_MODE_RELATIONSHIP, me, calculator)
+        self.assertEqual(text, expected)
 
-    def test_home_person_itself_is_labelled_me(self):
+    def test_relationship_mode_falls_back_to_full_name_without_a_home_person(self):
+        mother = self.db.get_person_from_handle(self.role_to_handle["MyMother"])
+        text = ig._person_name_text(self.db, mother, ig._LABEL_MODE_RELATIONSHIP, None, None)
+        self.assertEqual(text, "MyMothersFirstName MyMothersLastName")
+
+    def test_home_person_itself_is_labelled_me_in_relationship_mode(self):
         me = self.db.get_person_from_handle(self.role_to_handle["Me"])
         calculator = get_relationship_calculator()
-        self.assertEqual(ig._person_name_text(self.db, me, me, calculator), ig._("Me"))
+        text = ig._person_name_text(self.db, me, ig._LABEL_MODE_RELATIONSHIP, me, calculator)
+        self.assertEqual(text, ig._("Me"))
 
 
 class _FakeDbState:
@@ -251,26 +264,30 @@ class TestGraphMLWriterOptionBox(unittest.TestCase):
         me = self.db.get_person_from_handle(self.role_to_handle["Me"])
         return ig.GraphMLWriterOptionBox(me, _FakeDbState(self.db), None)
 
-    def test_relationship_labels_default_to_off(self):
-        self.assertFalse(self._make_box().use_relationship_labels)
+    def test_label_mode_defaults_to_full_name(self):
+        self.assertEqual(self._make_box().label_mode, ig._LABEL_MODE_FULL_NAME)
 
-    def test_checkbox_toggles_use_relationship_labels(self):
+    def test_selecting_a_radio_button_updates_label_mode(self):
         box = self._make_box()
-        box.get_option_box()
-        box._relationship_labels_check.set_active(True)
+        # Keep the returned container alive: GTK's radio-group exclusivity depends on the
+        # buttons staying parented, same as they would in the real export dialog (which keeps
+        # this box around for as long as the dialog is open) - an orphaned button is never
+        # excluded from its group's sibling buttons, so a discarded box would defeat this test.
+        container = box.get_option_box()  # noqa: F841 - keep alive, see comment above
+        box._label_mode_buttons[ig._LABEL_MODE_FIRST_NAME].set_active(True)
         box.parse_options()
-        self.assertTrue(box.use_relationship_labels)
+        self.assertEqual(box.label_mode, ig._LABEL_MODE_FIRST_NAME)
 
-    def test_export_data_uses_relationship_labels_from_a_parsed_option_box(self):
+    def test_export_data_uses_the_label_mode_from_a_parsed_option_box(self):
         me_id = self.db.get_person_from_handle(self.role_to_handle["Me"]).get_gramps_id()
         rule = IsMedicallyRelevantTo([me_id, "", ""])
         person_filter = GenericFilter()
         person_filter.add_rule(rule)
         filtered_db = FilterProxyDb(self.db, person_filter)
 
-        fake_option_box = _FakeRelationshipOptionBox(filtered_db)
+        fake_option_box = _FakeLabelModeOptionBox(filtered_db, ig._LABEL_MODE_RELATIONSHIP)
         path = os.path.join(_TEST_DIR, "_tmp_test_export_relationship.graphml")
-        # _name_lines() needs a Home Person to compute relationship terms against.
+        # _person_name_text() needs a Home Person to compute relationship terms against.
         self.db.set_default_person_handle(self.role_to_handle["Me"])
         try:
             ig.export_data(self.db, path, user=None, option_box=fake_option_box)
@@ -294,13 +311,12 @@ class TestGraphMLWriterOptionBox(unittest.TestCase):
                 os.remove(path)
 
 
-class _FakeRelationshipOptionBox:
+class _FakeLabelModeOptionBox:
     """Duck-types just enough of the option_box interface export_data() relies on."""
 
-    use_relationship_labels = True
-
-    def __init__(self, filtered_db):
+    def __init__(self, filtered_db, label_mode):
         self._filtered_db = filtered_db
+        self.label_mode = label_mode
 
     def parse_options(self):
         pass
@@ -313,14 +329,54 @@ class TestDateText(unittest.TestCase):
     def test_returns_none_for_empty_date(self):
         self.assertIsNone(ig._date_text(Date()))
 
-    def test_formats_a_date_the_same_way_gramps_itself_currently_does(self):
-        # Deliberately not asserting a specific string: the exact rendering
-        # depends on Gramps' currently configured date format, which is
-        # locale-specific (see _date_text's docstring) - just confirm this
-        # doesn't add/change anything on top of Gramps' own date displayer.
+    def test_formats_using_the_locale_preferred_numeric_format(self):
+        # Deliberately not asserting a specific string: the exact rendering is locale-specific
+        # (e.g. "4.4.1900" for German, "4/4/1900" for English) - just confirm this matches
+        # Gramps' own format index 1 (its "locale-preferred numerical format", guaranteed to
+        # exist for every language unlike most other format indices - see _date_text's
+        # docstring), regardless of whatever format happens to be globally configured.
         date = Date()
         date.set_yr_mon_day(1900, 4, 4)
-        self.assertEqual(ig._date_text(date), date_displayer.display(date))
+        original_format = date_displayer.format
+        date_displayer.set_format(1)
+        try:
+            expected = date_displayer.display(date)
+        finally:
+            date_displayer.set_format(original_format)
+        self.assertEqual(ig._date_text(date), expected)
+
+    def test_does_not_permanently_change_the_configured_format(self):
+        date = Date()
+        date.set_yr_mon_day(1900, 4, 4)
+        original_format = date_displayer.format
+        ig._date_text(date)
+        self.assertEqual(date_displayer.format, original_format)
+
+
+class TestWrapLine(unittest.TestCase):
+    def test_short_text_is_not_wrapped(self):
+        self.assertEqual(ig._wrap_line("- Flu (2020)", 1000), ["- Flu (2020)"])
+
+    def test_long_text_wraps_onto_multiple_lines_within_the_width(self):
+        text = "- " + " ".join(["Word"] * 20)
+        max_width = 150.0
+        lines = ig._wrap_line(text, max_width)
+        self.assertGreater(len(lines), 1)
+        for line in lines:
+            self.assertLessEqual(ig._text_width(line), max_width)
+
+    def test_reassembled_wrapped_text_contains_the_same_words(self):
+        text = "- " + " ".join(["Word"] * 20)
+        lines = ig._wrap_line(text, 150.0)
+        self.assertEqual(" ".join(lines).split(), text.split())
+
+    def test_continuation_lines_get_the_hanging_indent_not_the_first_line(self):
+        text = "- " + " ".join(["Word"] * 20)
+        lines = ig._wrap_line(text, 150.0, hanging_indent="  ")
+        self.assertGreater(len(lines), 1)
+        self.assertFalse(lines[0].startswith("  "))
+        for line in lines[1:]:
+            self.assertTrue(line.startswith("  "))
 
 
 class TestEventSortKey(unittest.TestCase):
@@ -354,6 +410,36 @@ class _FakeEvent:
 
     def __repr__(self):
         return f"_FakeEvent({self._description!r})"
+
+
+class TestComputeBoxWidth(unittest.TestCase):
+    def test_uses_the_name_when_it_is_wider_than_any_date_row(self):
+        long_name = "A" * 50
+        rows = [ig._Row([("* 2000", "left"), ("✝ 2080", "right")], is_date_row=True)]
+        width = ig._compute_box_width([long_name], [rows])
+        self.assertAlmostEqual(width, ig._text_width(long_name) + ig._LEFT_MARGIN + ig._SIDE_MARGIN)
+
+    def test_uses_the_date_row_when_it_is_wider_than_any_name(self):
+        short_name = "Jo"
+        long_birth, long_death = "* " + "1" * 40, "✝ " + "2" * 40
+        rows = [ig._Row([(long_birth, "left"), (long_death, "right")], is_date_row=True)]
+        width = ig._compute_box_width([short_name], [rows])
+        self.assertAlmostEqual(width, ig._date_row_width([(long_birth, "left"), (long_death, "right")]))
+
+    def test_never_narrower_than_the_minimum(self):
+        width = ig._compute_box_width(["Jo"], [[]])
+        self.assertEqual(width, ig._BOX_MIN_WIDTH)
+
+
+class TestDateRowWidth(unittest.TestCase):
+    def test_single_cell_uses_its_own_width_plus_margins_on_both_sides(self):
+        width = ig._date_row_width([("* 2000", "left")])
+        self.assertAlmostEqual(width, ig._text_width("* 2000") + 2 * ig._LEFT_MARGIN)
+
+    def test_two_cells_add_up_with_a_gap_between_them(self):
+        width = ig._date_row_width([("* 2000", "left"), ("✝ 2080", "right")])
+        expected = ig._text_width("* 2000") + ig._DATE_GAP + ig._text_width("✝ 2080") + 2 * ig._LEFT_MARGIN
+        self.assertAlmostEqual(width, expected)
 
 
 class TestComputeGenerations(unittest.TestCase):

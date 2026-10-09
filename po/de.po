@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Gramps Illness Plugin 0.4.0\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-07 18:52+0200\n"
-"PO-Revision-Date: 2026-10-07 18:52+0200\n"
+"POT-Creation-Date: 2026-10-09 16:34+0200\n"
+"PO-Revision-Date: 2026-10-09 16:34+0200\n"
 "Last-Translator: Claude-Code\n"
 "Language-Team: none\n"
 "Language: de\n"
@@ -17,11 +17,11 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
-#: illness_filter_rule.gpr.py:21
+#: illness_filter_rule.gpr.py:36
 msgid "Medically relevant people"
 msgstr "Medizinisch relevante Personen"
 
-#: illness_filter_rule.gpr.py:23
+#: illness_filter_rule.gpr.py:38
 msgid ""
 "Person filter rule that matches the people medically relevant to a chosen "
 "person: their ancestors, the siblings and children of those ancestors, and "
@@ -39,11 +39,11 @@ msgstr ""
 "festgelegt ist; erstelle stattdessen einen eigenen Filter aus dieser Regel "
 "im Filtereditor, wenn du eine andere Person oder Generationstiefe möchtest."
 
-#: illness_filter_rule.gpr.py:49
+#: illness_filter_rule.gpr.py:64
 msgid "Medically relevant people (built-in filter)"
 msgstr "Medizinisch relevante Personen (eingebauter Filter)"
 
-#: illness_filter_rule.gpr.py:51
+#: illness_filter_rule.gpr.py:66
 msgid ""
 "Contributes a ready-to-use 'Medically relevant people of <Home Person's "
 "name>' entry to every Person filter list, built from the 'Medically relevant "
@@ -53,27 +53,27 @@ msgstr ""
 "Hauptperson>“ fertig nutzbar in jeder Personenfilter-Liste bereit, aufgebaut "
 "aus der Regel „Medizinisch relevante Personen“."
 
-#: illness_filter_rule.py:42
+#: illness_filter_rule.py:61
 msgid "ID:"
 msgstr "ID:"
 
-#: illness_filter_rule.py:42
+#: illness_filter_rule.py:61
 msgid "Generations of ancestors:"
 msgstr "Generationen von Vorfahren:"
 
-#: illness_filter_rule.py:42
+#: illness_filter_rule.py:61
 msgid "Generations of descendants:"
 msgstr "Generationen von Nachkommen:"
 
-#: illness_filter_rule.py:43
+#: illness_filter_rule.py:62
 msgid "People medically relevant to <person>"
 msgstr "Medizinisch relevante Personen zu <Person>"
 
-#: illness_filter_rule.py:44
+#: illness_filter_rule.py:63
 msgid "Family filters"
 msgstr "Familienfilter"
 
-#: illness_filter_rule.py:46
+#: illness_filter_rule.py:65
 msgid ""
 "Matches a chosen person's ancestors, the siblings and children of those "
 "ancestors, and the chosen person's own descendants, excluding anyone only "
@@ -83,20 +83,20 @@ msgstr ""
 "dieser Vorfahren sowie die eigenen Nachkommen der Person; nur durch Heirat "
 "Verwandte werden ausgeschlossen."
 
-#: illness_filter_rule.py:96
+#: illness_filter_rule.py:115
 #, python-format
 msgid "Medically relevant people of %s"
 msgstr "Medizinisch relevante Personen zu %s"
 
-#: illness_graphml.gpr.py:21
+#: illness_graphml.gpr.py:36
 msgid "GraphML (yEd)"
 msgstr "GraphML (yEd)"
 
-#: illness_graphml.gpr.py:22
+#: illness_graphml.gpr.py:37
 msgid "Graph_ML (yEd)"
 msgstr "Graph_ML (yEd)"
 
-#: illness_graphml.gpr.py:24
+#: illness_graphml.gpr.py:39
 msgid ""
 "Exports the people selected by the chosen export filter as a GraphML file, "
 "ready to open and lay out in yEd: female persons get rounded-corner, "
@@ -115,14 +115,26 @@ msgstr ""
 "Personen werden generationsweise angeordnet als Ausgangslayout, das sich in "
 "yEd weiter anpassen lässt."
 
-#: illness_graphml.gpr.py:40
+#: illness_graphml.gpr.py:55
 msgid "GraphML (yEd) export options"
 msgstr "GraphML (yEd)-Exportoptionen"
 
-#: illness_graphml.py:151 illness_graphml.py:153
+#: illness_graphml.py:201 illness_graphml.py:202
 msgid "Me"
 msgstr "Ich"
 
-#: illness_graphml.py:469
-msgid "Show relationship instead of name"
-msgstr "Verwandtschaftsbezeichnung statt Name anzeigen"
+#: illness_graphml.py:554
+msgid "Full name"
+msgstr "Vollständiger Name"
+
+#: illness_graphml.py:555
+msgid "First name only"
+msgstr "Nur Vorname"
+
+#: illness_graphml.py:556
+msgid "Relationship to the Home Person"
+msgstr "Verwandtschaftsgrad zur Hauptperson"
+
+#: illness_graphml.py:569
+msgid "Label each person with:"
+msgstr "Jede Person beschriften mit:"

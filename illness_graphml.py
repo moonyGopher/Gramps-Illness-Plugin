@@ -28,17 +28,18 @@ test/testdata/TestTree.graphml:
 - Female persons get rounded-corner boxes with a bordeaux border; male
   persons get square-corner boxes with a navy border. Every box is filled
   white. See _person_shape().
-- Every box is the same width - just wide enough for the single widest name
-  among the people included, so every name fits on its own one line - but
-  each is only as tall as the rows it actually has. See
-  _compute_box_width()/_box_height().
+- Every box is the same width - just wide enough that the single widest
+  name, or the single widest birth+death date row, among the people
+  included fits on one line - but each is only as tall as the rows it
+  actually has. See _compute_box_width()/_box_height().
 - Each box's name is bold and centered at the top. Birth date (bottom-left)
   and death date (bottom-right, sharing the birth row) follow, then cause of
   death directly below the death date (same, right-aligned column, and as
   close under it as consecutive illness lines are to each other), then a
   bulleted illness list (left-aligned; dated ones oldest first, then any
-  undated ones alphabetically) - each row is only added if the data exists.
-  See _build_rows()/_Row.
+  undated ones alphabetically, each wrapped to fit the box rather than
+  overflowing it) - each row is only added if the data exists. See
+  _build_rows()/_Row/_wrap_line().
 - Every row is positioned as a fixed pixel offset from the box's own top
   edge (via nodeRatioY=-0.5/labelRatioY=-0.5, i.e. "anchor at the top edge,
   then place the label's own top edge `offset` pixels down"), not as a
@@ -61,6 +62,7 @@ above, since that's the only thing anyone has asked this export to show.
 """
 
 import html
+import textwrap
 
 from gramps.gen.const import GRAMPS_LOCALE as glocale
 from gramps.gen.datehandler import displayer as date_displayer
@@ -70,6 +72,11 @@ from gramps.gui.plug.export import WriterOptionBox
 
 _ = glocale.get_addon_translator(__file__).gettext
 
+# What to label each person's box with - see _person_name_text() and GraphMLWriterOptionBox.
+_LABEL_MODE_FULL_NAME = "full_name"
+_LABEL_MODE_FIRST_NAME = "first_name"
+_LABEL_MODE_RELATIONSHIP = "relationship"
+
 _BIRTH_SYMBOL = "*"
 _DEATH_SYMBOL = "✝"  # latin cross, Gramps' own default death symbol
 
@@ -77,10 +84,11 @@ _FEMALE_BORDER_COLOR = "#800020"  # Bordeaux/Weinrot
 _MALE_BORDER_COLOR = "#000080"  # Navy/Dunkelblau
 _FILL_COLOR = "#FFFFFF"
 
-_BOX_MIN_WIDTH = 200.0  # every box uses the same width - this, or wider if some name needs it (see _compute_box_width)
+_BOX_MIN_WIDTH = 200.0  # every box uses the same width - wider if some name/date row needs it (see _compute_box_width)
 _CHAR_WIDTH_ESTIMATE = 6.05  # px/char for Dialog 11pt, calibrated against the reference file
 _SIDE_MARGIN = 10.0
 _LEFT_MARGIN = 5.78  # calibrated from the reference file's left-aligned rows
+_DATE_GAP = 20.0  # minimum horizontal breathing room between birth (left) and death (right) text on one row
 
 _NAME_ROW_Y = 4.0
 _LINE_HEIGHT = 17.0  # one line of Dialog 11pt text, as laid out by yEd
@@ -125,34 +133,42 @@ def export_data(database, filename, user, option_box=None, callback=None):
     the user's chosen export filter (privacy/living/person/... - the same
     proxy chain GEDCOM export uses), then writes everyone left as GraphML.
     """
-    use_relationship_labels = False
+    label_mode = _LABEL_MODE_FULL_NAME
     if option_box:
         option_box.parse_options()
         database = option_box.get_filtered_database(database)
-        use_relationship_labels = getattr(option_box, "use_relationship_labels", False)
+        label_mode = getattr(option_box, "label_mode", _LABEL_MODE_FULL_NAME)
 
     people = list(database.iter_people())
-    document = _build_document(database, people, use_relationship_labels)
+    document = _build_document(database, people, label_mode)
 
     with open(filename, "w", encoding="utf-8") as the_file:
         the_file.write(document)
     return True
 
 
-def _build_document(database, people, use_relationship_labels=False):
+def _build_document(database, people, label_mode=_LABEL_MODE_FULL_NAME):
     family_links = _build_family_links(database, people)
     generations = _compute_generations(people, family_links)
 
     # A relationship term ("Mother", "Cousin", ...) needs a person to be relative to; the tree's
     # Home Person is the natural choice, since it's also what the ready-made export filter uses.
-    # Without one, there's nothing to compute a relationship against, so fall back to real names.
-    home_person = database.get_default_person() if use_relationship_labels else None
+    # Without one, there's nothing to compute a relationship against, so fall back to full names.
+    home_person = database.get_default_person() if label_mode == _LABEL_MODE_RELATIONSHIP else None
     relationship_calculator = get_relationship_calculator() if home_person else None
 
     names_by_handle = {
-        person.handle: _person_name_text(database, person, home_person, relationship_calculator) for person in people
+        person.handle: _person_name_text(database, person, label_mode, home_person, relationship_calculator)
+        for person in people
     }
-    box_width = _compute_box_width(names_by_handle.values())
+    # Unwrapped, just to size the box itself (an illness line wrapping onto another line doesn't
+    # need to make the box any wider - only the name/date rows do; see _compute_box_width()).
+    rows_by_handle = {person.handle: _build_rows(database, person) for person in people}
+    box_width = _compute_box_width(names_by_handle.values(), rows_by_handle.values())
+
+    # Rebuilt now that the final box_width is known, so long illness lines wrap to fit inside it.
+    wrap_width = box_width - _LEFT_MARGIN - _SIDE_MARGIN
+    rows_by_handle = {person.handle: _build_rows(database, person, wrap_width) for person in people}
 
     positions, family_positions = _compute_layout(database, people, generations, family_links, box_width)
 
@@ -163,11 +179,11 @@ def _build_document(database, people, use_relationship_labels=False):
     for person in people:
         parts.append(
             _write_person_node(
-                database,
                 person,
                 person_ids[person.handle],
                 positions[person.handle],
                 names_by_handle[person.handle],
+                rows_by_handle[person.handle],
                 box_width,
             )
         )
@@ -178,16 +194,22 @@ def _build_document(database, people, use_relationship_labels=False):
     return "".join(parts)
 
 
-def _person_name_text(database, person, home_person, relationship_calculator):
-    """The name block's text (a single line): the real name, or - if enabled - the relationship to the Home Person."""
-    if home_person is None:
-        name = person.get_primary_name()
-        given, surname = name.get_first_name(), name.get_surname()
-        return f"{given} {surname}" if surname else given
+def _person_name_text(database, person, label_mode, home_person, relationship_calculator):
+    """The name block's text (a single line): the full name, just the first name, or the relationship to the
+    Home Person, depending on `label_mode` - falling back to the full name if a relationship was requested
+    but there's no Home Person to compute one against (see _build_document)."""
+    name = person.get_primary_name()
+    given, surname = name.get_first_name(), name.get_surname()
 
-    if person.handle == home_person.handle:
-        return _("Me")
-    return relationship_calculator.get_one_relationship(database, home_person, person) or _("Me")
+    if label_mode == _LABEL_MODE_FIRST_NAME:
+        return given
+
+    if label_mode == _LABEL_MODE_RELATIONSHIP and home_person is not None:
+        if person.handle == home_person.handle:
+            return _("Me")
+        return relationship_calculator.get_one_relationship(database, home_person, person) or _("Me")
+
+    return f"{given} {surname}" if surname else given
 
 
 # ---------------------------------------------------------------------------
@@ -349,19 +371,36 @@ def _event_sort_key(event):
 
 def _date_text(date_obj):
     """
-    Format `date_obj` via Gramps' own date displayer, using whichever date
-    format is currently configured (Edit > Preferences > Dates in Gramps) -
-    deliberately not forcing a specific one: the exact format index for a
-    given style (e.g. "numeric with leading zeros") isn't stable across
-    locales, since the list of available formats is locale-specific.
+    Format `date_obj` via Gramps' own date displayer, in the active
+    language's customary numeric order (e.g. "4.4.1900" for German,
+    "4/4/1900" for English) - format index 1, which every one of Gramps'
+    locale date-display classes must define as "the locale-preferred
+    numerical format" (see the `formats` tuple and its comments in
+    gramps/gen/datehandler/_datedisplay.py); unlike most other format
+    indices, that contract is guaranteed for every language Gramps ships,
+    not just some of them (an earlier version of this function picked a
+    fancier-looking index that happened to not exist at all for some
+    languages, silently producing a wrong, unrelated format instead).
     """
     if date_obj is None or date_obj.is_empty():
         return None
-    return date_displayer.display(date_obj)
+    original_format = date_displayer.format
+    date_displayer.set_format(1)
+    try:
+        return date_displayer.display(date_obj)
+    finally:
+        date_displayer.set_format(original_format)
 
 
-def _build_rows(database, person):
-    """Return the _Row list to show below the name - birth/death, cause of death, illnesses - as present."""
+def _build_rows(database, person, wrap_width=None):
+    """
+    Return the _Row list to show below the name - birth/death, cause of
+    death, illnesses - as present. `wrap_width`, if given, wraps each
+    illness line to fit within that many pixels (see _wrap_line()) rather
+    than letting a long one overflow the box; pass None (the default) to
+    get the unwrapped text back - good enough to size the box itself, in
+    _compute_box_width(), before that final width is known.
+    """
     rows = []
 
     birth = _find_event(database, person, EventType.BIRTH)
@@ -382,11 +421,16 @@ def _build_rows(database, person):
         # tight_gap_before keeps it close under that date, as tight as consecutive illness lines are.
         rows.append(_Row([(f"({cause.get_description()})", "right")], is_date_row=False, tight_gap_before=True))
 
+    bullet = "- "
     illness_lines = []
     for illness in _find_events(database, person, EventType.MED_INFO):
         date_text = _date_text(illness.get_date_object())
         description = illness.get_description()
-        illness_lines.append(f"- {description} ({date_text})" if date_text else f"- {description}")
+        line = f"{bullet}{description} ({date_text})" if date_text else f"{bullet}{description}"
+        if wrap_width is not None:
+            illness_lines.extend(_wrap_line(line, wrap_width, hanging_indent=" " * len(bullet)))
+        else:
+            illness_lines.append(line)
     if illness_lines:
         rows.append(_Row([("\n".join(illness_lines), "left")], is_date_row=False))
 
@@ -397,15 +441,41 @@ def _text_width(text):
     return max((len(line) for line in text.split("\n")), default=0) * _CHAR_WIDTH_ESTIMATE
 
 
-def _compute_box_width(name_texts):
+def _wrap_line(text, max_width, hanging_indent=""):
+    """
+    Word-wrap `text` to fit within `max_width` pixels, using the same
+    char-width estimate as _text_width(). `hanging_indent`, if given, is
+    prepended to every line after the first - for a bullet like "- ", pass
+    a same-width blank (e.g. "  ") so wrapped continuation lines still line
+    up under the text rather than the bullet.
+    """
+    max_chars = max(int(max_width / _CHAR_WIDTH_ESTIMATE), 1)
+    return textwrap.wrap(text, width=max_chars, subsequent_indent=hanging_indent) or [text]
+
+
+def _compute_box_width(name_texts, rows_lists):
     """
     Every box uses this same width, computed once for the whole export:
-    wide enough for the single widest name among the people included (so
-    every name fits on its one line), or _BOX_MIN_WIDTH if that's already
-    wide enough.
+    wide enough that the single widest name, or the single widest
+    birth+death date row (whichever needs more room), among the people
+    included fits on one line - or _BOX_MIN_WIDTH if that's already wide
+    enough.
     """
     widest_name = max((_text_width(text) for text in name_texts), default=0.0)
-    return max(_BOX_MIN_WIDTH, widest_name + _LEFT_MARGIN + _SIDE_MARGIN)
+    widest_date_row = max(
+        (_date_row_width(row.cells) for rows in rows_lists for row in rows if row.is_date_row),
+        default=0.0,
+    )
+    return max(_BOX_MIN_WIDTH, widest_name + _LEFT_MARGIN + _SIDE_MARGIN, widest_date_row)
+
+
+def _date_row_width(date_cells):
+    """Minimum box width so birth and death text (if both present) don't crowd each other on their shared row."""
+    if len(date_cells) == 1:
+        text, _align = date_cells[0]
+        return _text_width(text) + 2 * _LEFT_MARGIN
+    (left_text, _left_align), (right_text, _right_align) = date_cells
+    return _text_width(left_text) + _DATE_GAP + _text_width(right_text) + 2 * _LEFT_MARGIN
 
 
 def _box_height(rows):
@@ -440,8 +510,7 @@ def _node_label_xml(text, align, width, height, is_bold, auto_size, y_offset):
     )
 
 
-def _write_person_node(database, person, node_id, position, name_text, box_width):
-    rows = _build_rows(database, person)
+def _write_person_node(person, node_id, position, name_text, rows, box_width):
     height = _box_height(rows)
     is_female = person.get_gender() == Person.FEMALE
     border_color = _FEMALE_BORDER_COLOR if is_female else _MALE_BORDER_COLOR
@@ -517,29 +586,46 @@ class GraphMLWriterOptionBox(WriterOptionBox):
     export_options): the standard privacy/living/filter/reference/note
     options every Gramps export has (including the Person filter dropdown -
     this plugin's own ready-made filter or a custom one - and "Include all
-    selected people" to ignore filtering entirely), plus one extra checkbox
-    to show each person's relationship to the Home Person instead of their
-    name (see _person_name_text()).
+    selected people" to ignore filtering entirely), plus a choice of what
+    to label each box with - see _person_name_text() - the full name
+    (default), just the first name, or the person's relationship to the
+    Home Person.
     """
+
+    _LABEL_MODE_CHOICES = [
+        (_LABEL_MODE_FULL_NAME, _("Full name")),
+        (_LABEL_MODE_FIRST_NAME, _("First name only")),
+        (_LABEL_MODE_RELATIONSHIP, _("Relationship to the Home Person")),
+    ]
 
     def __init__(self, person, dbstate, uistate, track=None, window=None):
         WriterOptionBox.__init__(self, person, dbstate, uistate, track=track or [], window=window)
-        self.use_relationship_labels = False
-        self._relationship_labels_check = None
+        self.label_mode = _LABEL_MODE_FULL_NAME
+        self._label_mode_buttons = {}
 
     def get_option_box(self):
         from gi.repository import Gtk
 
         option_box = WriterOptionBox.get_option_box(self)
-        self._relationship_labels_check = Gtk.CheckButton(label=_("Show relationship instead of name"))
-        self._relationship_labels_check.set_active(self.use_relationship_labels)
-        option_box.pack_start(self._relationship_labels_check, False, True, 0)
+
+        option_box.pack_start(Gtk.Label(label=_("Label each person with:"), xalign=0), False, True, 0)
+        group_leader = None
+        self._label_mode_buttons = {}
+        for mode, label in self._LABEL_MODE_CHOICES:
+            button = Gtk.RadioButton.new_with_label_from_widget(group_leader, label)
+            group_leader = group_leader or button
+            button.set_active(mode == self.label_mode)
+            option_box.pack_start(button, False, True, 0)
+            self._label_mode_buttons[mode] = button
+
         return option_box
 
     def parse_options(self):
         WriterOptionBox.parse_options(self)
-        if self._relationship_labels_check:
-            self.use_relationship_labels = self._relationship_labels_check.get_active()
+        for mode, button in self._label_mode_buttons.items():
+            if button.get_active():
+                self.label_mode = mode
+                break
 
 
 _HEADER = """<?xml version="1.0" encoding="UTF-8" standalone="no"?>

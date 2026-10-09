@@ -39,9 +39,10 @@ Filter Editor** (category **Family filters**).
 
 To export just those people: **File > Export...**, choose **GEDCOM** or
 **GraphML (yEd)**, and pick the filter in the Options page. GraphML export
-also offers a **"Show relationship instead of name"** checkbox (labels boxes
-"Mother", "Cousin", etc. instead of names) and lays people out generation by
-generation as a starting point - use yEd's own layout tools to refine it.
+also lets you choose what to label each box with - full name (default),
+first name only, or relationship to the Home Person (e.g. "Mother",
+"Cousin") - and lays people out generation by generation as a starting
+point - use yEd's own layout tools to refine it.
 
 ## Filtering rules
 
