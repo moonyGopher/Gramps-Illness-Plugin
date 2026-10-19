@@ -27,8 +27,9 @@ Included, starting from "me":
   relatives.
 - at every ancestor level (including "me"'s own level), the siblings of
   that generation's blood relative (aunts/uncles, or "me"'s own siblings),
-  together with their descendants, up to `descendant_generations` levels
-  (i.e. cousins, ...).
+  together with the siblings' own children - but no further (i.e. cousins
+  and nieces/nephews, but not their children in turn; see
+  COLLATERAL_DESCENDANT_GENERATIONS).
 - direct descendants of "me" (children, grandchildren, ...), up to
   `descendant_generations` levels.
 
@@ -38,6 +39,15 @@ also a blood relative through one of the paths above.
 
 DEFAULT_ANCESTOR_GENERATIONS = 3
 DEFAULT_DESCENDANT_GENERATIONS = 3
+
+# How many generations of a collateral relative's (sibling/aunt/uncle/...)
+# own descendants to include - deliberately fixed at 1 (their children:
+# cousins, nieces/nephews), not tied to `descendant_generations`: that
+# parameter is about how far down *me's own* line to go, and reusing it
+# here as well used to also pull in cousins' and nieces'/nephews' children
+# (and further), which is a much more distant/less medically relevant
+# relationship than the name "descendant_generations" suggested.
+COLLATERAL_DESCENDANT_GENERATIONS = 1
 
 
 def filter_relevant_people(
@@ -53,27 +63,26 @@ def filter_relevant_people(
     :param me: the central Person, or its handle
     :param ancestor_generations: how many generations of ancestors to
         include (1 = parents, 2 = grandparents, ...)
-    :param descendant_generations: how many generations of descendants to
-        include, both directly from `me` and from each collateral relative
-        (sibling/aunt/uncle/...) found while walking up the ancestor line
+    :param descendant_generations: how many generations of descendants of
+        `me` directly to include (collateral relatives - siblings, aunts,
+        uncles, ... - found while walking up the ancestor line always get
+        exactly COLLATERAL_DESCENDANT_GENERATIONS of their own descendants,
+        regardless of this value)
     :rtype: set[str]
     """
     me_handle = me.get_handle() if hasattr(me, "get_handle") else me
 
     relevant: set = set()
-    _add_ancestors_and_collaterals(
-        database, me_handle, ancestor_generations, descendant_generations, relevant, processed=set()
-    )
+    _add_ancestors_and_collaterals(database, me_handle, ancestor_generations, relevant, processed=set())
     _add_descendants(database, me_handle, descendant_generations, relevant)
     return relevant
 
 
-def _add_ancestors_and_collaterals(
-    database, person_handle, remaining_ancestor_generations, descendant_generations, relevant, processed
-):
+def _add_ancestors_and_collaterals(database, person_handle, remaining_ancestor_generations, relevant, processed):
     """
-    Add `person_handle`, their siblings (with the siblings' descendants),
-    and recurse into both parents while ancestor generations remain.
+    Add `person_handle`, their siblings (with the siblings' own children -
+    see COLLATERAL_DESCENDANT_GENERATIONS), and recurse into both parents
+    while ancestor generations remain.
     """
     if person_handle in processed:
         return
@@ -91,7 +100,7 @@ def _add_ancestors_and_collaterals(
         if sibling_handle == person_handle:
             continue
         relevant.add(sibling_handle)
-        _add_descendants(database, sibling_handle, descendant_generations, relevant)
+        _add_descendants(database, sibling_handle, COLLATERAL_DESCENDANT_GENERATIONS, relevant)
 
     if remaining_ancestor_generations <= 0:
         return
@@ -105,7 +114,6 @@ def _add_ancestors_and_collaterals(
                 database,
                 parent_handle,
                 remaining_ancestor_generations - 1,
-                descendant_generations,
                 relevant,
                 processed,
             )

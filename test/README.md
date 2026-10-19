@@ -43,3 +43,9 @@ should be filtered out:
 - HusbandsMother
 - MomsSistersHusband
 - MyHusband
+
+The following person is a blood relative, but too distant to be medically
+relevant - a descendant of a collateral relative (MomsSister) beyond that
+relative's own children - and should be filtered out regardless of
+`descendant_generations`:
+- MomsSistersChildsChild (Me's cousin's child)

@@ -36,6 +36,7 @@ ROLE_TO_FIRST_NAME = {
     "MomsBrother": "MomsBrothersFirstName",
     "MomsSistersHusband": "MomsSistersHusbandsFirstName",
     "MomsSistersChild": "MomsSistersChildsFirstName",
+    "MomsSistersChildsChild": "MomsSistersChildsChildsFirstName",
     "MomsFathersMother": "MomsFathersMothersFirstName",
     "MomsFathersFather": "MomsFathersFathersFirstName",
 }
@@ -63,6 +64,14 @@ EXPECTED_EXCLUDED_ROLES = {
     "HusbandsFather",
     "HusbandsMother",
     "MomsSistersHusband",
+}
+
+# Too-distant blood relatives: descendants of a collateral relative (a
+# cousin, here) beyond that collateral relative's own children, never
+# included regardless of `descendant_generations` - see
+# COLLATERAL_DESCENDANT_GENERATIONS in illness_filter.py.
+EXPECTED_EXCLUDED_DISTANT_RELATIVE_ROLES = {
+    "MomsSistersChildsChild",
 }
 
 

@@ -26,7 +26,13 @@ sys.path.insert(0, os.path.dirname(_TEST_DIR))  # repo root, for illness_filter
 sys.path.insert(0, _TEST_DIR)  # this directory, for testtree
 
 from illness_filter import DEFAULT_ANCESTOR_GENERATIONS, filter_relevant_people
-from testtree import EXPECTED_EXCLUDED_ROLES, EXPECTED_INCLUDED_ROLES, build_role_to_handle, load_test_tree
+from testtree import (
+    EXPECTED_EXCLUDED_DISTANT_RELATIVE_ROLES,
+    EXPECTED_EXCLUDED_ROLES,
+    EXPECTED_INCLUDED_ROLES,
+    build_role_to_handle,
+    load_test_tree,
+)
 
 
 class TestIllnessFilter(unittest.TestCase):
@@ -111,6 +117,15 @@ class TestIllnessFilter(unittest.TestCase):
 
     def test_sisters_children_are_included(self):
         self.assertIn("MomsSistersChild", self._relevant_roles())
+
+    def test_collateral_relatives_descendants_are_excluded_beyond_their_children(self):
+        # A cousin's own children (here, MomsSister's grandchild) are too
+        # distant to be medically relevant, regardless of
+        # descendant_generations - that parameter only extends "me"'s own
+        # line, not collateral relatives' lines.
+        result = self._relevant_roles(descendant_generations=3)
+        for role in EXPECTED_EXCLUDED_DISTANT_RELATIVE_ROLES:
+            self.assertNotIn(role, result)
 
     def test_siblings_of_ancestors_are_included(self):
         result = self._relevant_roles()

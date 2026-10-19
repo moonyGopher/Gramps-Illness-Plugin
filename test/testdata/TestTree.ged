@@ -2,10 +2,10 @@
 1 SOUR Gramps
 2 VERS 6.0.8
 2 NAME Gramps
-1 DATE 8 OCT 2026
-2 TIME 18:49:19
+1 DATE 19 OCT 2026
+2 TIME 17:58:19
 1 SUBM @SUBM@
-1 FILE TestTree.ged
+1 FILE test/testdata/TestTree.ged
 1 COPR Copyright (c) 2026 .
 1 GEDC
 2 VERS 5.5.1
@@ -183,9 +183,10 @@
 1 SEX M
 1 FAMC @F0004@
 2 PEDI birth
+1 FAMS @F0007@
 1 CHAN
-2 DATE 28 SEP 2026
-3 TIME 17:46:03
+2 DATE 19 OCT 2026
+3 TIME 17:58:19
 0 @I0014@ INDI
 1 NAME MomsFathersMothersFirstName /MomsFathersMothersLastName/
 2 TYPE birth
@@ -215,6 +216,17 @@
 1 CHAN
 2 DATE 28 SEP 2026
 3 TIME 17:50:18
+0 @I0016@ INDI
+1 NAME MomsSistersChildsChildsFirstName /MomsSistersChildsChildsLastName/
+2 TYPE birth
+2 GIVN MomsSistersChildsChildsFirstName
+2 SURN MomsSistersChildsChildsLastName
+1 SEX F
+1 FAMC @F0007@
+2 PEDI birth
+1 CHAN
+2 DATE 19 OCT 2026
+3 TIME 17:58:19
 0 @F0000@ FAM
 1 HUSB @I0001@
 1 WIFE @I0000@
@@ -260,4 +272,10 @@
 1 CHAN
 2 DATE 28 SEP 2026
 3 TIME 17:47:50
+0 @F0007@ FAM
+1 HUSB @I0013@
+1 CHIL @I0016@
+1 CHAN
+2 DATE 19 OCT 2026
+3 TIME 17:58:19
 0 TRLR
